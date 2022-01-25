@@ -788,7 +788,7 @@ drop_err_fib:
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto, __u32 src_id)
 {
 	int encrypt_iface = 0;
 	int ret = 0;
@@ -797,13 +797,14 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
 	if (ret)
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface);
 	if (ret)
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
+
 #ifdef BPF_HAVE_FIB_LOOKUP
 	/* Redirect only works if we have a fib lookup to set the MAC
 	 * addresses. Otherwise let the stack do the routing and fib
@@ -811,28 +812,49 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	 * incorrect dmac leaving bpf_host so will need to mark as
 	 * PACKET_HOST or otherwise fixup MAC addresses.
 	 */
-	if (encrypt_iface)
-		return ctx_redirect(ctx, encrypt_iface, 0);
+	if (encrypt_iface) {
+		/* We are redirecting to the network-facing interface in
+		 * here. When to-netdev program is attached to the interface,
+		 * we need to generate TRACE_TO_NETWORK in there, because
+		 * the packet may be dropped with host firewall. When to-netdev
+		 * is not attached, we should generate the trace in here since
+		 * there's no other opportunity. Carefully manage the #ifdef
+		 * in below.
+		 */
+#if !defined(ENABLE_NODEPORT) && !defined(ENABLE_HOST_FIREWALL)
+		send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0, ctx->ingress_ifindex,
+				TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
 #endif
+		return ctx_redirect(ctx, encrypt_iface, 0);
+	}
+#endif
+	/* Assuming we are in the cilium_host tc egress program
+	 * (from_host) and the peer veth device (cilium_net) has
+	 * tc ingress program (to_host).
+	 *
+	 * Right after the packet leaves the from_host program, it
+	 * will be hooked into the to_host program. Since to_host
+	 * program has TRACE_TO_STACK notification, we shouldn't
+	 * do send_trace_notify in here.
+	 */
 	return CTX_ACT_OK;
 }
 
 #else /* TUNNEL_MODE */
-static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx)
+static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
-	__u32 seclabel, tunnel_endpoint = 0;
+	__u32 tunnel_endpoint = 0;
 
-	seclabel = get_identity(ctx);
 	tunnel_endpoint = ctx_load_meta(ctx, 4);
 	ctx->mark = 0;
 
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, src_id, TRACE_PAYLOAD_LEN);
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused)
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused, __u32 src_id)
 {
-	return do_netdev_encrypt_encap(ctx);
+	return do_netdev_encrypt_encap(ctx, src_id);
 }
 #endif /* TUNNEL_MODE */
 #endif /* ENABLE_IPSEC */
@@ -868,7 +890,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (magic == MARK_MAGIC_ENCRYPT) {
 			send_trace_notify(ctx, trace, identity, 0, 0, ctx->ingress_ifindex,
 					TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
-			return do_netdev_encrypt(ctx, proto);
+			return do_netdev_encrypt(ctx, proto, identity);
 		}
 #endif
 
