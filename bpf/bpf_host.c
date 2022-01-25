@@ -845,18 +845,14 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	int ret;
 
 #ifdef ENABLE_IPSEC
-	if (from_host) {
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-
-		if (magic == MARK_MAGIC_ENCRYPT)
-			return do_netdev_encrypt(ctx, proto);
-	} else {
-		int done = do_decrypt(ctx, proto);
-
-		if (!done)
-			return CTX_ACT_OK;
-	}
+	if (!from_host && !do_decrypt(ctx, proto))
+		/* Don't have to do send_trace_notify in here, because
+		 * the packet will be hooked into the to-host program
+		 * soon and trace is there.
+		 */
+		return CTX_ACT_OK;
 #endif
+
 	bpf_clear_meta(ctx);
 
 	if (from_host) {
@@ -867,6 +863,15 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (magic == MARK_MAGIC_PROXY_INGRESS ||
 				magic == MARK_MAGIC_PROXY_EGRESS)
 			trace = TRACE_FROM_PROXY;
+
+#ifdef ENABLE_IPSEC
+		if (magic == MARK_MAGIC_ENCRYPT) {
+			send_trace_notify(ctx, trace, identity, 0, 0, ctx->ingress_ifindex,
+					TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
+			return do_netdev_encrypt(ctx, proto);
+		}
+#endif
+
 		send_trace_notify(ctx, trace, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	} else {
