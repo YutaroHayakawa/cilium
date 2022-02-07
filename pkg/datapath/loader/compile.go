@@ -30,8 +30,9 @@ const (
 	outputAssembly = OutputType("asm")
 	outputSource   = OutputType("c")
 
-	compiler = "clang"
-	linker   = "llc"
+	compiler  = "clang"
+	linker    = "llc"
+	optimizer = "opt"
 
 	endpointPrefix   = "bpf_lxc"
 	endpointProg     = endpointPrefix + "." + string(outputSource)
@@ -225,6 +226,54 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 		return err
 	}
 
+	optimizeArgs := make([]string, 0, 4)
+	optimizeArgs = append(optimizeArgs, "-load-pass-plugin")
+	optimizeArgs = append(optimizeArgs, "/lib/libBPFCov.so")
+	optimizeArgs = append(optimizeArgs, "-passes=bpf-cov")
+
+	optimizeCmd, cancelOptimize := exec.WithCancel(ctx, optimizer, optimizeArgs...)
+	defer cancelOptimize()
+	optimizerStdout, optimizerStderr, err := prepareCmdPipes(optimizeCmd)
+	if err != nil {
+		return err
+	}
+
+	optimizeCmd.Stdin = compilerStdout
+	if err := compileCmd.Start(); err != nil {
+		return fmt.Errorf("Failed to start command %s: %s", compileCmd.Args, err)
+	}
+
+	log.WithFields(logrus.Fields{
+		"target": optimizer,
+		"args":   optimizeArgs,
+	}).Debug("Launching optimizer")
+
+	if err := optimizeCmd.Start(); err != nil {
+		return fmt.Errorf("Failed to start command %s: %s", optimizeCmd.Args, err)
+	}
+
+	var compileOut []byte
+	compileOut, _ = io.ReadAll(compilerStderr)
+
+	err = compileCmd.Wait()
+	if err != nil {
+		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
+		log.WithFields(logrus.Fields{
+			"compiler-pid": pidFromProcess(compileCmd.Process),
+			"optimizer-pid":   pidFromProcess(optimizeCmd.Process),
+		}).Error(err)
+		if compileOut != nil {
+			scopedLog := log.Warn
+			if debug {
+				scopedLog = log.Debug
+			}
+			scanner := bufio.NewScanner(bytes.NewReader(compileOut))
+			for scanner.Scan() {
+				scopedLog(scanner.Text())
+			}
+		}
+	}
+
 	linkArgs := make([]string, 0, 8)
 	if debug {
 		linkArgs = append(linkArgs, "-mattr=dwarfris")
@@ -233,33 +282,34 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	linkArgs = append(linkArgs, "-mcpu="+GetBPFCPU())
 	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
 
+	log.WithFields(logrus.Fields{
+		"target": linker,
+		"args":   linkArgs,
+	}).Debug("Launching linker")
 	linkCmd := exec.CommandContext(ctx, linker, linkArgs...)
-	linkCmd.Stdin = compilerStdout
-	if err := compileCmd.Start(); err != nil {
-		return fmt.Errorf("Failed to start command %s: %s", compileCmd.Args, err)
-	}
+	linkCmd.Stdin = optimizerStdout
 
-	var compileOut []byte
+	var optimizeOut []byte
 	/* Ignoring the output here because pkg/command/exec will log it. */
 	_, err = linkCmd.CombinedOutput(log, true)
 	if err == nil {
-		compileOut, _ = io.ReadAll(compilerStderr)
-		err = compileCmd.Wait()
+		optimizeOut, _ = io.ReadAll(optimizerStderr)
+		err = optimizeCmd.Wait()
 	} else {
-		cancelCompile()
+		cancelOptimize()
 	}
 	if err != nil {
 		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
 		log.WithFields(logrus.Fields{
-			"compiler-pid": pidFromProcess(compileCmd.Process),
+			"optimizer-pid": pidFromProcess(optimizeCmd.Process),
 			"linker-pid":   pidFromProcess(linkCmd.Process),
 		}).Error(err)
-		if compileOut != nil {
+		if optimizeOut != nil {
 			scopedLog := log.Warn
 			if debug {
 				scopedLog = log.Debug
 			}
-			scanner := bufio.NewScanner(bytes.NewReader(compileOut))
+			scanner := bufio.NewScanner(bytes.NewReader(optimizeOut))
 			for scanner.Scan() {
 				scopedLog(scanner.Text())
 			}
@@ -297,6 +347,8 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 	} else {
 		args = append(args, "-emit-llvm")
 		args = append(args, "-g")
+		args = append(args, "-fprofile-instr-generate")
+		args = append(args, "-fcoverage-mapping")
 	}
 
 	args = append(args, standardCFlags...)

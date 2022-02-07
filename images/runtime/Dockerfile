@@ -7,7 +7,7 @@ ARG TESTER_IMAGE=quay.io/cilium/image-tester:c37f768323abfba87c90cd9c82d37136183
 ARG GOLANG_IMAGE=docker.io/library/golang:1.17.6@sha256:d36ec9839e6ebac63a53f3e15758ffa339b81dc5df6c9d41a18a3f9302bd0d90
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:626ffe58f6e7566e00254b638eb7e0f3b11d4da9675088f4781a50ae288f3322
 
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:547db7ec9a750b8f888a506709adb41f135b952e@sha256:4d6fa0aede3556c5fb5a9c71bc6b9585475ac9b1064f516d4c45c8fb691c9d9e
+ARG CILIUM_LLVM_IMAGE=docker.io/yutarohayakawa/cilium-llvm:02ab5e0f44f86bee99f9ac31640c8435ff88a639-wip
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:04c0710893e30be2b96c86b148f65d9e97610377@sha256:bcd5132d971f9e7a0d271bdc284d06b72eb7b555fce2d19c2b34d8e7620fabe3
 ARG CILIUM_IPROUTE2_IMAGE=quay.io/cilium/cilium-iproute2:158454716257587cfb9f8236b327304b972ea7d7@sha256:7cfbbc66ab5746aa9cb4da4cb5e6ff14cbfaa1000d3e255714cf06ab59f79f85
 
@@ -45,7 +45,8 @@ COPY iptables-wrapper /usr/sbin/iptables-wrapper
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./configure-iptables-wrapper.sh
 
-COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /bin/
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/opt /bin/
+COPY --from=llvm-dist /usr/local/lib/libBPFCov.so /lib
 COPY --from=bpftool-dist /usr/local /usr/local
 COPY --from=iproute2-dist /usr/lib/libbpf* /usr/lib
 COPY --from=iproute2-dist /usr/local /usr/local
