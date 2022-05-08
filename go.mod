@@ -227,6 +227,7 @@ require (
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
+	github.com/vishvananda/netlink => github.com/YutaroHayakawa/netlink v1.2.0-beta.0.20220508083211-450a3351f06b
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20210831235406-48667b93284d
 
