@@ -56,9 +56,13 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 
 func ipSecNewState() *netlink.XfrmState {
 	state := netlink.XfrmState{
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Proto: netlink.XFRM_PROTO_ESP,
-		ESN:   false,
+		Mode:        netlink.XFRM_MODE_TUNNEL,
+		Proto:       netlink.XFRM_PROTO_ESP,
+		ESN:         false,
+		OSeqMayWrap: true,
+		Replay: &netlink.XfrmReplayState{
+			OSeq: 0xffff0000,
+		},
 	}
 	return &state
 }
