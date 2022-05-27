@@ -1593,6 +1593,11 @@ func init() {
         "ip"
       ],
       "properties": {
+        "cluster-id": {
+          "description": "ID of the cluster which this backend runs",
+          "type": "integer",
+          "format": "uint8"
+        },
         "ip": {
           "description": "Layer 3 address",
           "type": "string"
@@ -6044,6 +6049,11 @@ func init() {
         "ip"
       ],
       "properties": {
+        "cluster-id": {
+          "description": "ID of the cluster which this backend runs",
+          "type": "integer",
+          "format": "uint8"
+        },
         "ip": {
           "description": "Layer 3 address",
           "type": "string"

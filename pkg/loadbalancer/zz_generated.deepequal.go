@@ -22,6 +22,9 @@ func (in *L3n4Addr) deepEqual(other *L3n4Addr) bool {
 	if in.Scope != other.Scope {
 		return false
 	}
+	if in.ClusterID != other.ClusterID {
+		return false
+	}
 
 	return true
 }

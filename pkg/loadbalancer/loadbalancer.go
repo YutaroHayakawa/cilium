@@ -485,13 +485,18 @@ func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 // includes the lookup scope for frontend addresses which is used in service
 // handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
 //
+// When multiple clusters are using overlapping IP addresses, we need an additional
+// ClusterID to uniquly identify the host. ClusterID zero implies that we can identify
+// the host without ClusterID.
+//
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type L3n4Addr struct {
 	// +deepequal-gen=false
 	IP net.IP
 	L4Addr
-	Scope uint8
+	Scope     uint8
+	ClusterID uint8
 }
 
 // DeepEqual returns true if both the receiver and 'o' are deeply equal.
@@ -550,11 +555,11 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 
 // NewBackend creates the Backend struct instance from given params.
 // The default state for the returned Backend is BackendStateActive.
-func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, clusterID uint8) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
 	b := Backend{
 		ID:       BackendID(id),
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
+		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport, ClusterID: clusterID},
 		State:    BackendStateActive,
 	}
 
@@ -592,7 +597,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid backend state [%s]", base.State)
 	}
 
-	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}, State: state}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr, ClusterID: base.ClusterID}, State: state}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -606,7 +611,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
-	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
+	return &L3n4Addr{IP: ip, L4Addr: *l4addr, ClusterID: base.ClusterID}, nil
 }
 
 func (a *L3n4Addr) GetModel() *models.FrontendAddress {
@@ -633,24 +638,31 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	ip := b.IP.String()
 	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
-		IP:       &ip,
-		Port:     b.Port,
-		NodeName: b.NodeName,
-		State:    stateStr,
+		IP:        &ip,
+		Port:      b.Port,
+		NodeName:  b.NodeName,
+		State:     stateStr,
+		ClusterID: uint8(b.ClusterID),
 	}
 }
 
 // String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
 // "[IPv6]:Port[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
+	var ret string
 	var scope string
 	if a.Scope == ScopeInternal {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+		ret = fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+	} else {
+		ret = fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
 	}
-	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
+	if a.ClusterID != 0 {
+		return ret + fmt.Sprintf("@%d", a.ClusterID)
+	}
+	return ret
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
@@ -677,11 +689,12 @@ func (a *L3n4Addr) StringID() string {
 // Note: the resulting string is meant to be used as a key for maps and is not
 // readable by a human eye when printed out.
 func (a L3n4Addr) Hash() string {
-	const lenProto = 0 // proto is omitted for now
-	const lenScope = 1 // scope is uint8 which is an alias for byte
-	const lenPort = 2  // port is uint16 which is 2 bytes
+	const lenProto = 0     // proto is omitted for now
+	const lenScope = 1     // scope is uint8 which is an alias for byte
+	const lenPort = 2      // port is uint16 which is 2 bytes
+	const lenClusterID = 1 // cluster-id is uint8 which is an alias for byte
 
-	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort)
+	b := make([]byte, net.IPv6len+lenProto+lenScope+lenPort+lenClusterID)
 	copy(b, a.IP.To16())
 	// FIXME: add Protocol once we care about protocols
 	// scope is a uint8 which is an alias for byte so a cast is safe
@@ -689,6 +702,8 @@ func (a L3n4Addr) Hash() string {
 	// port is a uint16, so 2 bytes
 	b[net.IPv6len+lenProto+lenScope] = byte(a.Port >> 8)
 	b[net.IPv6len+lenProto+lenScope+1] = byte(a.Port & 0xff)
+	// cluster-id is a uint8 which is an alias for byte so a cast is safe
+	b[net.IPv6len+lenProto+lenScope+lenPort] = byte(a.ClusterID)
 	return string(b)
 }
 

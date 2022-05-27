@@ -2491,6 +2491,10 @@ definitions:
           - terminating
           - quarantined
           - maintenance
+      cluster-id:
+        description: ID of the cluster which this backend runs
+        type: integer
+        format: uint8
   LRPBackend:
     description: Pod backend of an LRP
     type: object

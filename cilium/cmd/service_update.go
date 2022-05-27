@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -50,7 +51,7 @@ func init() {
 	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
-	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
+	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port> or <IP:Port@ClusterID>)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backendStates, "states", "", []string{}, "Backend state(s) as {active(default),terminating,quarantined,maintenance}")
 }
 
@@ -79,6 +80,35 @@ func boolToInt(set bool) int {
 		return 1
 	}
 	return 0
+}
+
+func parseBackend(backend string) (*net.TCPAddr, uint8, error) {
+	var clusterID uint8
+
+	strs := strings.Split(backend, "@")
+
+	// Doesn't have ClusterID
+	if len(strs) != 1 && len(strs) != 2 {
+		return nil, 0, fmt.Errorf("Invalid backend format")
+	}
+
+	// Has ClusterID
+	if len(strs) == 2 {
+		// We can detect > ClusterIDMax (255 = UINT8_MAX) with this ParseUint since it returns
+		// error when the number didn't fit into given bit width.
+		ui, err := strconv.ParseUint(strs[1], 10, 8)
+		if err != nil {
+			return nil, 0, fmt.Errorf("Invalid ClusterID")
+		}
+		clusterID = uint8(ui)
+	}
+
+	beAddr, err := net.ResolveTCPAddr("tcp", strs[0])
+	if err != nil {
+		return nil, 0, fmt.Errorf("Invalid backend address format")
+	}
+
+	return beAddr, clusterID, nil
 }
 
 func updateService(cmd *cobra.Command, args []string) {
@@ -167,13 +197,13 @@ func updateService(cmd *cobra.Command, args []string) {
 		Fatalf("Invalid number of backend states (%v) for backends (%v)", backendStates, backends)
 	}
 	for i, backend := range backends {
-		beAddr, err := net.ResolveTCPAddr("tcp", backend)
+		beAddr, clusterID, err := parseBackend(backend)
 		if err != nil {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), clusterID)
 
 		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)

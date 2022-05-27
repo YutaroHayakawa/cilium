@@ -11,7 +11,7 @@ cilium service update [flags]
 ### Options
 
 ```
-      --backends strings            Backend address or addresses (<IP:Port>)
+      --backends strings            Backend address or addresses (<IP:Port> or <IP:Port@ClusterID>)
       --frontend string             Frontend address
   -h, --help                        help for update
       --id uint                     Identifier

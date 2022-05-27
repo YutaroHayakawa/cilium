@@ -22,6 +22,9 @@ import (
 // swagger:model BackendAddress
 type BackendAddress struct {
 
+	// ID of the cluster which this backend runs
+	ClusterID uint8 `json:"cluster-id,omitempty"`
+
 	// Layer 3 address
 	// Required: true
 	IP *string `json:"ip"`
