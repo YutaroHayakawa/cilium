@@ -2001,6 +2001,18 @@ clustermesh:
     #   tls:
     #     cert: ""
     #     key: ""
+    # # -- Set this when this cluster has one or more PodCIDR overlapping with local cluster. This option must
+    # # be enabled for both of remote cluster and local cluster. When you enable this option retroactively for
+    # # already running cluster, you should first stop all inter-cluster communication. Otherwise you may
+    # # experience traffic loss during the period only part of the nodes in the cluster get this configuration.
+    # #
+    # # When you enable this option, your application must accept the following limitations
+    # # - Pods cannot communicate with each other by their IP address over cluster. All Pod-to-Pod communication
+    # #   must be through Global Service.
+    # # - When Pods communicate with Global Service, the source address of the packes from local Pods to remote
+    # #   Pods will be translated to the local Node's IP address. Thus, remote Pods won't see the "real" IP of
+    # #   the local Pods.
+    #   hasOverlappingPodCIDR: false
 
   apiserver:
     # -- Clustermesh API server image.
