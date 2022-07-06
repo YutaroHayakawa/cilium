@@ -1,4 +1,4 @@
-{{- define "clustermesh-config-generate-etcd-cfg" }}
+{{- define "clustermesh-config-generate-cfg" }}
 {{- $cluster := index . 0 -}}
 {{- $domain := index . 1 -}}
 
@@ -11,4 +11,5 @@ endpoints:
 trusted-ca-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client-ca.crt
 key-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client.key
 cert-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client.crt
+has-overlapping-pod-cidr: {{ $cluster.hasOverlappingPodCIDR }}
 {{- end }}
