@@ -63,6 +63,10 @@ type remoteCluster struct {
 	// connect to the etcd cluster of the remote cluster
 	configPath string
 
+	// hasOverlappingPodCIDR is set when this remote cluster has one or
+	// more PodCIDR range overlapping with local cluster's one.
+	hasOverlappingPodCIDR bool
+
 	// changed receives an event when the remote cluster configuration has
 	// changed and is closed when the configuration file was removed
 	changed chan bool
