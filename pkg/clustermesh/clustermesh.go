@@ -203,6 +203,12 @@ func (cm *ClusterMesh) add(name, path string) {
 		return
 	}
 
+	r, err := parseRemoteClusterConfig(path)
+	if err != nil {
+		log.Errorf("Failed to parse remote cluster configuration: %s", err.Error())
+		return
+	}
+
 	inserted := false
 	cm.mutex.Lock()
 	cluster, ok := cm.clusters[name]
@@ -211,6 +217,8 @@ func (cm *ClusterMesh) add(name, path string) {
 		cm.clusters[name] = cluster
 		inserted = true
 	}
+
+	cluster.hasOverlappingPodCIDR = r.HasOverlappingPodCIDR
 
 	cm.metricTotalRemoteClusters.WithLabelValues(cm.conf.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 	cm.mutex.Unlock()
