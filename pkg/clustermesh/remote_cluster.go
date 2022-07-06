@@ -6,12 +6,14 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"time"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -24,6 +26,32 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
+
+// remoteClusterConfig is an unmarshaled remote cluster configuration file.
+// The config file can be interpreted as a etcd configuration file that we
+// can pass to the etcd client, but at the same time contains some per-cluster
+// configuration. This struct extracts the data **other than** etcd configuration.
+type remoteClusterConfig struct {
+	// hasOverlappingPodCIDR indicates if the remote cluster has one or more
+	// PodCIDR range overlapping with the local cluster's one.
+	HasOverlappingPodCIDR bool `json:"has-overlapping-pod-cidr,omitempty"`
+}
+
+func parseRemoteClusterConfig(path string) (*remoteClusterConfig, error) {
+	var r remoteClusterConfig
+
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read remote cluster config file %s: %s", path, err.Error())
+	}
+
+	err = yaml.Unmarshal(b, &r)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse remote cluster config file %s: %s", path, err.Error())
+	}
+
+	return &r, nil
+}
 
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
