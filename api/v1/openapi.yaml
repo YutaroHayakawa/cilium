@@ -2157,6 +2157,9 @@ definitions:
         description: Time of last failure that occurred while attempting to reach the cluster
         type: string
         format: date-time
+      has-overlapping-pod-cidr:
+        description: Whether the cluster has an overlapping PodCIDR with local cluster
+        type: boolean
   MonitorStatus:
     description: Status of the node monitor
     properties:
