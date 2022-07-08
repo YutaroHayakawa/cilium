@@ -3755,6 +3755,10 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "has-overlapping-pod-cidr": {
+          "description": "Whether the cluster has an overlapping PodCIDR with local cluster",
+          "type": "boolean"
+        },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
           "type": "string",
@@ -8633,6 +8637,10 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "has-overlapping-pod-cidr": {
+          "description": "Whether the cluster has an overlapping PodCIDR with local cluster",
+          "type": "boolean"
+        },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
           "type": "string",

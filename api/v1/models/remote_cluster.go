@@ -22,6 +22,9 @@ import (
 // swagger:model RemoteCluster
 type RemoteCluster struct {
 
+	// Whether the cluster has an overlapping PodCIDR with local cluster
+	HasOverlappingPodCidr bool `json:"has-overlapping-pod-cidr,omitempty"`
+
 	// Time of last failure that occurred while attempting to reach the cluster
 	// Format: date-time
 	LastFailure strfmt.DateTime `json:"last-failure,omitempty"`
