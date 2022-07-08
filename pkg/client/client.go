@@ -372,10 +372,19 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 		for _, cluster := range sr.ClusterMesh.Clusters {
 			if sd.AllClusters || !cluster.Ready {
-				fmt.Fprintf(w, "   %s: %s, %d nodes, %d identities, %d services, %d failures (last: %s)\n",
+				s := fmt.Sprintf("   %s: %s, %d nodes, %d identities, %d services, %d failures (last: %s)",
 					cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
 					cluster.NumIdentities, cluster.NumSharedServices,
-					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
+					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)),
+				)
+
+				if cluster.HasOverlappingPodCidr {
+					s += ", has-overlapping-pod-cidr"
+				}
+
+				s += "\n"
+
+				fmt.Fprint(w, s)
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 			}
 		}
