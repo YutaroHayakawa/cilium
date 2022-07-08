@@ -384,13 +384,14 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	}
 
 	return &models.RemoteCluster{
-		Name:              rc.name,
-		Ready:             rc.isReadyLocked(),
-		NumNodes:          int64(rc.remoteNodes.NumEntries()),
-		NumSharedServices: int64(rc.remoteServices.NumEntries()),
-		NumIdentities:     int64(rc.remoteIdentityCache.NumEntries()),
-		Status:            backendStatus,
-		NumFailures:       int64(rc.failures),
-		LastFailure:       strfmt.DateTime(rc.lastFailure),
+		Name:                  rc.name,
+		Ready:                 rc.isReadyLocked(),
+		NumNodes:              int64(rc.remoteNodes.NumEntries()),
+		NumSharedServices:     int64(rc.remoteServices.NumEntries()),
+		NumIdentities:         int64(rc.remoteIdentityCache.NumEntries()),
+		Status:                backendStatus,
+		NumFailures:           int64(rc.failures),
+		LastFailure:           strfmt.DateTime(rc.lastFailure),
+		HasOverlappingPodCidr: rc.hasOverlappingPodCIDR,
 	}
 }
