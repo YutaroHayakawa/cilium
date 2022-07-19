@@ -47,6 +47,9 @@ type ClusterService struct {
 	// Cluster is the cluster name the service is configured in
 	Cluster string `json:"cluster"`
 
+	// ClusterID is the cluster id the service is configured in
+	ClusterID uint32 `json:"clusterID"`
+
 	// Namespace is the cluster namespace the service is configured in
 	Namespace string `json:"namespace"`
 

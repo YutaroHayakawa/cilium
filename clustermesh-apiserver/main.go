@@ -56,12 +56,17 @@ import (
 )
 
 type configuration struct {
+	clusterID        uint32
 	clusterName      string
 	serviceProxyName string
 }
 
 func (c configuration) LocalClusterName() string {
 	return c.clusterName
+}
+
+func (c configuration) LocalClusterID() uint32 {
+	return c.clusterID
 }
 
 func (c configuration) K8sServiceProxyNameValue() string {
@@ -100,7 +105,6 @@ var (
 	}
 
 	mockFile        string
-	clusterID       uint32
 	ciliumK8sClient clientset.Interface
 	cfg             configuration
 
@@ -199,7 +203,7 @@ func runApiserver() error {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
-	flags.Uint32Var(&clusterID, option.ClusterIDName, 0, "Cluster ID")
+	flags.Uint32Var(&cfg.clusterID, option.ClusterIDName, 0, "Cluster ID")
 	option.BindEnv(vp, option.ClusterIDName)
 
 	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
@@ -387,7 +391,7 @@ func updateNode(obj interface{}) {
 	if ciliumNode, ok := obj.(*ciliumv2.CiliumNode); ok {
 		n := nodeTypes.ParseCiliumNode(ciliumNode)
 		n.Cluster = cfg.clusterName
-		n.ClusterID = clusterID
+		n.ClusterID = cfg.clusterID
 		if err := ciliumNodeStore.UpdateLocalKeySync(context.Background(), &n); err != nil {
 			log.WithError(err).Warning("Unable to insert node into etcd")
 		} else {
@@ -581,7 +585,7 @@ func synchronizeCiliumEndpoints() {
 func runServer(cmd *cobra.Command) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
-		"cluster-id":   clusterID,
+		"cluster-id":   cfg.clusterID,
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
