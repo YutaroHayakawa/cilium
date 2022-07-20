@@ -72,6 +72,11 @@ type ClusterService struct {
 
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool `json:"shared"`
+
+	// HasOverlappingPodCIDR indicates that the remote cluster has overlapping
+	// PodCIDR from local cluster's point of view. This field won't appear in
+	// the kvstore (encoding/json ignores the field with tag "-").
+	HasOverlappingPodCIDR bool `json:"-"`
 }
 
 func (s *ClusterService) String() string {

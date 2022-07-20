@@ -152,6 +152,9 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 		scopedLog.Debugf("Update event of remote service %#v", svc)
 
+		// svc.HasOverlappingPodCIDR won't appear on the kvstore. Set it.
+		svc.HasOverlappingPodCIDR = r.remoteCluster.hasOverlappingPodCIDR
+
 		mesh := r.remoteCluster.mesh
 		mesh.globalServices.onUpdate(svc)
 
