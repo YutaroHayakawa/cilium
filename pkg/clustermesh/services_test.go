@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	. "gopkg.in/check.v1"
@@ -34,10 +35,10 @@ import (
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
-func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string) (string, string) {
+func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string, clusterID uint32) (string, string) {
+	clusterIDStr := strconv.FormatUint(uint64(clusterID), 10)
 	return "cilium/state/services/v1/" + s.randomName + clusterSuffix + "/default/foo",
-		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"},"shared":true,"includeExternal":true}`
-
+		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"},"shared":true,"includeExternal":true,"clusterID":` + clusterIDStr + `}`
 }
 
 type ClusterMeshServicesTestSuite struct {
@@ -129,9 +130,9 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction,
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80", 1)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90", 2)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 
 	swgSvcs := lock.NewStoppableWaitGroup()
@@ -206,9 +207,9 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80", 1)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90", 2)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 
 	k8sSvc := &slim_corev1.Service{
@@ -237,14 +238,14 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 
-	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080", 1)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
 			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil
 	})
 
-	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080", 2)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
@@ -270,9 +271,9 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80", 1)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90", 2)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 
 	k8sSvc := &slim_corev1.Service{
