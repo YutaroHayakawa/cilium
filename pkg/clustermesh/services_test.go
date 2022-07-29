@@ -34,6 +34,7 @@ import (
 )
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+var etcdConfigWithOverlappingPodCIDR = []byte(fmt.Sprintf("endpoints:\n- %s\nhas-overlapping-pod-cidr: true\n", kvstore.EtcdDummyAddress()))
 
 func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string, clusterID uint32) (string, string) {
 	clusterIDStr := strconv.FormatUint(uint64(clusterID), 10)
@@ -76,6 +77,11 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
+	// Cluster 3 has an overlapping PodCIDR with Cluster 1
+	config3 := path.Join(dir, s.randomName+"3")
+	err = os.WriteFile(config3, etcdConfigWithOverlappingPodCIDR, 0644)
+	c.Assert(err, IsNil)
+
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test2",
 		ConfigDirectory:       dir,
@@ -92,7 +98,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	// wait for both clusters to appear in the list of cm clusters
 	c.Assert(testutils.WaitUntil(func() bool {
-		return cm.NumReadyClusters() == 2
+		return cm.NumReadyClusters() == 3
 	}, 10*time.Second), IsNil)
 }
 
@@ -134,6 +140,8 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90", 2)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	k, v = s.prepareServiceUpdate("3", "10.0.185.196", "http", "80", 3) // same backend IP as 1
+	kvstore.Client().Set(context.TODO(), k, []byte(v))
 
 	swgSvcs := lock.NewStoppableWaitGroup()
 	k8sSvc := &slim_corev1.Service{
@@ -154,7 +162,12 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196")] != nil &&
-			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil &&
+			// When remote cluster has an overlapping PodCIDR, backend IPs should be
+			// annotated with ClusterID. Otherwise, when the backend IP is completely
+			// the same, we cannot distinguish them. Below checks if service cache
+			// correctly annotate the backend with ClusterID or not.
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196@3")] != nil
 	})
 
 	k8sEndpoints := &slim_corev1.Endpoints{
@@ -191,6 +204,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
+	s.expectEvent(c, k8s.UpdateService, svcID, nil)
+
+	// When the last external endpoints deleted, the service becomes not ready and deleted
+	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"3")
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
 
 	swgSvcs.Stop()
@@ -210,6 +227,8 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80", 1)
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90", 2)
+	kvstore.Client().Set(context.TODO(), k, []byte(v))
+	k, v = s.prepareServiceUpdate("3", "10.0.185.196", "http", "80", 3) // same backend IP as 1
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 
 	k8sSvc := &slim_corev1.Service{
@@ -235,7 +254,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 80)) &&
 			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil &&
 			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")].Ports["http2"].DeepEqual(
-				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 90)) &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196@3")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.185.196@3")].Ports["http"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 80))
 	})
 
 	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080", 1)
@@ -259,7 +281,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	// test to complete instead of 30+30 seconds.
 	time.Sleep(2 * time.Second)
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
+	time.Sleep(2 * time.Second)
+	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"3")
 
+	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
 
