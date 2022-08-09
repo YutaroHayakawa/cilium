@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -467,6 +468,96 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 		if err := s.populateBackendMapV2FromV1(v1BackendMapExistsV4, v1BackendMapExistsV6); err != nil {
 			log.WithError(err).Warn("Error populating V2 map from V1 map, might interrupt existing connections during upgrade")
 		}
+	}
+
+	return nil
+}
+
+func createExportRouteSpec(prefix *cidr.CIDR, ifindex, tableID, protocolID int) netlink.Route {
+	return netlink.Route{
+		LinkIndex: ifindex,
+		Dst:       prefix.IPNet,
+		Table:     tableID,
+		Protocol:  netlink.RouteProtocol(protocolID),
+	}
+}
+
+func updateExportRoutes(prefixes []*cidr.CIDR, ifindex, tableID, protocolID int) error {
+	for _, prefix := range prefixes {
+		route := createExportRouteSpec(prefix, ifindex, tableID, protocolID)
+		err := netlink.RouteReplace(&route)
+		if err != nil {
+			return fmt.Errorf("couldn't replace route with prefix %s: %s", prefix, err.Error())
+		}
+	}
+	return nil
+}
+
+func deleteExportRoutes(prefixes []*cidr.CIDR, ifindex, tableID, protocolID int) error {
+	for _, prefix := range prefixes {
+		route := createExportRouteSpec(prefix, ifindex, tableID, protocolID)
+		err := netlink.RouteDel(&route)
+		if err != nil {
+			return fmt.Errorf("coudn't delete route with prefix %s: %s", prefix, err.Error())
+		}
+	}
+	return nil
+}
+
+func reconcileVrf(vrfName string, tableID int) (netlink.Link, error) {
+	var vrf netlink.Link
+
+	vrf, err := netlink.LinkByName(vrfName)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			// Device not found. Recover by creating a new device.
+			attrs := netlink.Vrf{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: vrfName,
+				},
+				Table: uint32(tableID),
+			}
+			err := netlink.LinkAdd(&attrs)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't create VRF %s: %s", vrfName, err.Error())
+			}
+			vrf, err = netlink.LinkByName(vrfName)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't get VRF %s after creation: %s", vrfName, err.Error())
+			}
+		} else {
+			// Unrecoverable error
+			return nil, fmt.Errorf("failed to get VRF %s: %s", vrfName, err.Error())
+		}
+	}
+
+	// Ensure the device is up
+	if vrf.Attrs().OperState != netlink.OperUp {
+		err := netlink.LinkSetUp(vrf)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't bring up VRF %s: %s", vrfName, err.Error())
+		}
+	}
+
+	return vrf, err
+}
+
+func updateOrRemoveExportRoutes(old, new []*cidr.CIDR, vrfName string, tableID, protocolID int) error {
+	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
+
+	vrf, err := reconcileVrf(vrfName, tableID)
+	if err != nil {
+		return err
+	}
+
+	err = updateExportRoutes(addedAuxRoutes, vrf.Attrs().Index, tableID, protocolID)
+	if err != nil {
+		return err
+	}
+
+	err = deleteExportRoutes(removedAuxRoutes, vrf.Attrs().Index, tableID, protocolID)
+	if err != nil {
+		return err
 	}
 
 	return nil

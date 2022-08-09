@@ -1141,6 +1141,12 @@ func initializeFlags() {
 	flags.Int(option.RouteExporterPodCIDRProtocolID, defaults.RouteExporterPodCIDRProtocolID, "Protocol ID that route exporter use for exporting PodCIDR")
 	option.BindEnv(option.RouteExporterPodCIDRProtocolID)
 
+	flags.Bool(option.RouteExporterExportLBIP, defaults.RouteExporterExportLBIP, "Export LBIP with Route Exporter")
+	option.BindEnv(option.RouteExporterExportLBIP)
+
+	flags.Int(option.RouteExporterLBIPProtocolID, defaults.RouteExporterLBIPProtocolID, "Protocol ID that route exporter use for exporting LBIP")
+	option.BindEnv(option.RouteExporterLBIPProtocolID)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1861,39 +1867,37 @@ func runDaemon() {
 		}
 	}
 
-	/*
-		if option.Config.RouteExporterEnabled() {
-			log.Info("Initializing Route Exporter")
+	// if option.Config.RouteExporterEnabled() {
+	// 	log.Info("Initializing Route Exporter")
 
-			addressFamilies := []int{}
-			if option.Config.EnableIPv4 {
-				addressFamilies = append(addressFamilies, unix.AF_INET)
-			}
-			if option.Config.EnableIPv6 {
-				addressFamilies = append(addressFamilies, unix.AF_INET6)
-			}
+	// 	addressFamilies := []int{}
+	// 	if option.Config.EnableIPv4 {
+	// 		addressFamilies = append(addressFamilies, unix.AF_INET)
+	// 	}
+	// 	if option.Config.EnableIPv6 {
+	// 		addressFamilies = append(addressFamilies, unix.AF_INET6)
+	// 	}
 
-			rec := routeexporter.RouteExporterConfig{
-				VrfName:           option.Config.RouteExporterVrfName,
-				TableID:           option.Config.RouteExporterTableID,
-				AddressFamilies:   addressFamilies,
-				ExportPodCIDR:     option.Config.RouteExporterExportPodCIDR,
-				PodCIDRProtocolID: option.Config.RouteExporterPodCIDRProtocolID,
-			}
+	// 	rec := routeexporter.RouteExporterConfig{
+	// 		VrfName:           option.Config.RouteExporterVrfName,
+	// 		TableID:           option.Config.RouteExporterTableID,
+	// 		AddressFamilies:   addressFamilies,
+	// 		ExportPodCIDR:     option.Config.RouteExporterExportPodCIDR,
+	// 		PodCIDRProtocolID: option.Config.RouteExporterPodCIDRProtocolID,
+	// 	}
 
-			re, err := routeexporter.NewRouteExporter(&rec)
-			if err != nil {
-				log.Fatalf("Failed to initialize Route Exporter: %s", err.Error())
-			}
+	// 	re, err := routeexporter.NewRouteExporter(&rec)
+	// 	if err != nil {
+	// 		log.Fatalf("Failed to initialize Route Exporter: %s", err.Error())
+	// 	}
 
-			err = re.Run(d.ctx)
-			if err != nil {
-				log.Fatalf("Failed to start Route Exporter: %s", err.Error())
-			}
+	// 	err = re.Run(d.ctx)
+	// 	if err != nil {
+	// 		log.Fatalf("Failed to start Route Exporter: %s", err.Error())
+	// 	}
 
-			log.Info("Successfully initialized Route Exporter")
-		}
-	*/
+	// 	log.Info("Successfully initialized Route Exporter")
+	// }
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")

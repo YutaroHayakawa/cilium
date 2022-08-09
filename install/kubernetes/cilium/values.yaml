@@ -274,6 +274,10 @@ routeExporter:
   exportPodCIDR: true
   # -- Specify the protocol ID to export PodCIDR
   podCIDRProtocolID: 100
+  # -- Export routes to the LBIP assigned to the local service
+  exportLBIP: true
+  # -- Specify the protocol ID to export LBIP
+  lbIPProtocolID: 101
 
 bpf:
   # -- Configure the mount point for the BPF filesystem

@@ -494,4 +494,10 @@ const (
 
 	// Protocol ID that route exporter uses for exporting PodCIDR
 	RouteExporterPodCIDRProtocolID = 100
+
+	// Export LBIP with route exporter
+	RouteExporterExportLBIP = true
+
+	// Protocol ID that route exporter uses for exporting LBIP
+	RouteExporterLBIPProtocolID = 101
 )

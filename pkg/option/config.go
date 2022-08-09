@@ -1105,6 +1105,12 @@ const (
 
 	// Protocol ID that Route Exporter uses for exporting PodCIDR
 	RouteExporterPodCIDRProtocolID = "route-exporter-pod-cidr-protocol-id"
+
+	// Export LB VIP with Route Exporter
+	RouteExporterExportLBIP = "route-exporter-export-lb-ip"
+
+	// Protocol ID that Route Exporter uses for exporting LB VIP
+	RouteExporterLBIPProtocolID = "route-exporter-lb-ip-protocol-id"
 )
 
 // Default string arguments
@@ -2267,11 +2273,17 @@ type DaemonConfig struct {
 	// Table ID of the VRF that route exporter creates
 	RouteExporterTableID int
 
-	// Protocol ID that route exporter uses
-	RouteExporterPodCIDRProtocolID int
-
 	// Export PodCIDRs with route exporter
 	RouteExporterExportPodCIDR bool
+
+	// Protocol ID that route exporter uses for PodCIDR
+	RouteExporterPodCIDRProtocolID int
+
+	// Export LB VIP with route exporter
+	RouteExporterExportLBIP bool
+
+	// Protocol ID that route exporter used for LB VIP
+	RouteExporterLBIPProtocolID int
 }
 
 var (
@@ -3281,6 +3293,8 @@ func (c *DaemonConfig) Populate() {
 	c.RouteExporterTableID = viper.GetInt(RouteExporterTableID)
 	c.RouteExporterExportPodCIDR = viper.GetBool(RouteExporterExportPodCIDR)
 	c.RouteExporterPodCIDRProtocolID = viper.GetInt(RouteExporterPodCIDRProtocolID)
+	c.RouteExporterExportLBIP = viper.GetBool(RouteExporterExportLBIP)
+	c.RouteExporterLBIPProtocolID = viper.GetInt(RouteExporterLBIPProtocolID)
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {

@@ -864,6 +864,8 @@ data:
   route-exporter-table-id: {{ .Values.routeExporter.tableID | quote }}
   route-exporter-export-pod-cidr: {{ .Values.routeExporter.exportPodCIDR | quote }}
   route-exporter-pod-cidr-protocol-id: {{ .Values.routeExporter.podCIDRProtocolID | quote }}
+  route-exporter-export-lb-ip: {{ .Values.routeExporter.exportLBIP | quote }}
+  route-exporter-lb-ip-protocol-id: {{ .Values.routeExporter.lbIPProtocolID | quote }}
 {{- else }}
   enable-route-exporter: "false"
 {{- end }}
