@@ -81,6 +81,7 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/routeexporter"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
@@ -363,7 +364,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath, routeExporter *routeexporter.RouteExporter) (*Daemon, *endpointRestoreState, error) {
 
 	// Pass the cancel to our signal handler directly so that it's canceled
 	// before we run the cleanup functions (see `cleanup.go` for implementation).
@@ -661,6 +662,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
+		routeExporter,
 	)
 	nd.RegisterK8sNodeGetter(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)

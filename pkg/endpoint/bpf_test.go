@@ -30,7 +30,7 @@ type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
 	e := NewEndpointWithState(&suite, &suite, ipcache.NewIPCache(nil), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
-	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil, nil)
+	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil, nil, nil)
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)

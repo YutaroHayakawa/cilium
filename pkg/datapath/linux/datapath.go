@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/routeexporter"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -32,7 +33,7 @@ type linuxDatapath struct {
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent) datapath.Datapath {
+func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent, routeExporter *routeexporter.RouteExporter) datapath.Datapath {
 	dp := &linuxDatapath{
 		ConfigWriter:    &config.HeaderfileWriter{},
 		IptablesManager: ruleManager,
@@ -43,7 +44,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 		lbmap:           lbmap.New(),
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent, routeExporter)
 	return dp
 }
 

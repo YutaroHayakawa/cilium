@@ -76,7 +76,7 @@ func startCiliumAgent(nodeName string, clients fakeClients, modConfig func(*opti
 	var err error
 	handle.d, _, err = cmd.NewDaemon(ctx, cancel,
 		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
-		fdp)
+		fdp, nil)
 	if err != nil {
 		return nil, agentHandle{}, err
 	}

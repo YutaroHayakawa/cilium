@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/routeexporter"
 )
 
 const (
@@ -68,13 +69,14 @@ type linuxNodeHandler struct {
 	neighByNextHop         map[string]*netlink.Neigh // key = string(net.IP)
 	neighLastPingByNextHop map[string]time.Time      // key = string(net.IP)
 	wgAgent                datapath.WireguardAgent
+	routeExporter          *routeexporter.RouteExporter
 
 	ipsecMetricCollector prometheus.Collector
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.NodeAddressing, wgAgent datapath.WireguardAgent) datapath.NodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.NodeAddressing, wgAgent datapath.WireguardAgent, routeExporter *routeexporter.RouteExporter) datapath.NodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -85,6 +87,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 		neighByNextHop:         map[string]*netlink.Neigh{},
 		neighLastPingByNextHop: map[string]time.Time{},
 		wgAgent:                wgAgent,
+		routeExporter:          routeExporter,
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 	}
 }
@@ -442,96 +445,6 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLoc
 			n.deleteNodeRoute(prefix, isLocalNode)
 		}
 	}
-}
-
-func (n *linuxNodeHandler) createExportRouteSpec(prefix *cidr.CIDR, ifindex, tableID, protocolID int) netlink.Route {
-	return netlink.Route{
-		LinkIndex: ifindex,
-		Dst:       prefix.IPNet,
-		Table:     tableID,
-		Protocol:  netlink.RouteProtocol(protocolID),
-	}
-}
-
-func (n *linuxNodeHandler) updateExportRoutes(prefixes []*cidr.CIDR, ifindex, tableID, protocolID int) error {
-	for _, prefix := range prefixes {
-		route := n.createExportRouteSpec(prefix, ifindex, tableID, protocolID)
-		err := netlink.RouteReplace(&route)
-		if err != nil {
-			return fmt.Errorf("couldn't replace route with prefix %s: %s", prefix, err.Error())
-		}
-	}
-	return nil
-}
-
-func (n *linuxNodeHandler) deleteExportRoutes(prefixes []*cidr.CIDR, ifindex, tableID, protocolID int) error {
-	for _, prefix := range prefixes {
-		route := n.createExportRouteSpec(prefix, ifindex, tableID, protocolID)
-		err := netlink.RouteDel(&route)
-		if err != nil {
-			return fmt.Errorf("coudn't delete route with prefix %s: %s", prefix, err.Error())
-		}
-	}
-	return nil
-}
-
-func reconcileVrf(vrfName string, tableID int) (netlink.Link, error) {
-	var vrf netlink.Link
-
-	vrf, err := netlink.LinkByName(vrfName)
-	if err != nil {
-		if _, ok := err.(netlink.LinkNotFoundError); ok {
-			// Device not found. Recover by creating a new device.
-			attrs := netlink.Vrf{
-				LinkAttrs: netlink.LinkAttrs{
-					Name: vrfName,
-				},
-				Table: uint32(tableID),
-			}
-			err := netlink.LinkAdd(&attrs)
-			if err != nil {
-				return nil, fmt.Errorf("couldn't create VRF %s: %s", vrfName, err.Error())
-			}
-			vrf, err = netlink.LinkByName(vrfName)
-			if err != nil {
-				return nil, fmt.Errorf("couldn't get VRF %s after creation: %s", vrfName, err.Error())
-			}
-		} else {
-			// Unrecoverable error
-			return nil, fmt.Errorf("failed to get VRF %s: %s", vrfName, err.Error())
-		}
-	}
-
-	// Ensure the device is up
-	if vrf.Attrs().OperState != netlink.OperUp {
-		err := netlink.LinkSetUp(vrf)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't bring up VRF %s: %s", vrfName, err.Error())
-		}
-	}
-
-	return vrf, err
-}
-
-func (n *linuxNodeHandler) updateOrRemoveExportRoutes(old, new []*cidr.CIDR, vrfName string, tableID, protocolID int) error {
-	addedAuxRoutes, removedAuxRoutes := cidr.DiffCIDRLists(old, new)
-
-	vrf, err := reconcileVrf(vrfName, tableID)
-	if err != nil {
-		return err
-	}
-
-	err = n.updateExportRoutes(addedAuxRoutes, vrf.Attrs().Index, tableID, protocolID)
-	if err != nil {
-		return err
-	}
-
-	err = n.deleteExportRoutes(removedAuxRoutes, vrf.Attrs().Index, tableID, protocolID)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
@@ -1202,20 +1115,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			metrics.Register(n.ipsecMetricCollector)
 		}
 		if option.Config.EnableRouteExporter && option.Config.RouteExporterExportPodCIDR {
-			n.updateOrRemoveExportRoutes(
-				oldAllIP4AllocCidrs,
-				newAllIP4AllocCidrs,
-				option.Config.RouteExporterVrfName,
-				option.Config.RouteExporterTableID,
-				option.Config.RouteExporterPodCIDRProtocolID,
-			)
-			n.updateOrRemoveExportRoutes(
-				oldAllIP6AllocCidrs,
-				newAllIP6AllocCidrs,
-				option.Config.RouteExporterVrfName,
-				option.Config.RouteExporterTableID,
-				option.Config.RouteExporterPodCIDRProtocolID,
-			)
+			n.routeExporter.UpdateOrDeletePodCIDRRoutes(newAllIP4AllocCidrs, oldAllIP4AllocCidrs)
+			n.routeExporter.UpdateOrDeletePodCIDRRoutes(newAllIP6AllocCidrs, oldAllIP6AllocCidrs)
 		}
 		return nil
 	}

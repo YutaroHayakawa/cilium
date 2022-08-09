@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/routeexporter"
 )
 
 const (
@@ -216,6 +217,7 @@ type K8sWatcher struct {
 	egressGatewayManager  egressGatewayManager
 	ipcache               *ipcache.IPCache
 	envoyConfigManager    envoyConfigManager
+	routeExporter         *routeexporter.RouteExporter
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -256,6 +258,7 @@ func NewK8sWatcher(
 	envoyConfigManager envoyConfigManager,
 	cfg WatcherConfiguration,
 	ipcache *ipcache.IPCache,
+	routeExporter *routeexporter.RouteExporter,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
@@ -275,6 +278,7 @@ func NewK8sWatcher(
 		NodeChain:             subscriber.NewNodeChain(),
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
+		routeExporter:         routeExporter,
 		cfg:                   cfg,
 	}
 }
