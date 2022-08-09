@@ -255,6 +255,23 @@ bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
 
+# -- Enable Route Exporter that simply exports Cilium related IP routes (e.g.
+# routes to PodCIDR) to specified VRF routing table with specified protocol
+# ID. This can be used for integration with external routing daemon (e.g. FRR,
+# Bird, etc) to export the routes with routing protocols (e.g. BGP, ISIS, etc).
+routeExporter:
+  # -- Enables the Route Exporter
+  enabled: false
+  # -- Route Exporter creates a Linux VRF device to write route. External routing
+  # daemon can "redistribute" route by reading the routing table of this VRF.
+  vrfName: "cilium_export"
+  # -- Specify the ID of the VRF routing table
+  tableID: 100
+  # -- Export routes to the PodCIDRs assigned to the local node
+  exportPodCIDR: true
+  # -- Specify the protocol ID to export PodCIDR
+  podCIDRProtocolID: 100
+
 bpf:
   # -- Configure the mount point for the BPF filesystem
   root: /sys/fs/bpf

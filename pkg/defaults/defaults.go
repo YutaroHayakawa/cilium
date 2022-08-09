@@ -479,4 +479,19 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+
+	// Enable route exporter
+	EnableRouteExporter = false
+
+	// Name of the VRF that route exporter creates
+	RouteExporterVrfName = "cilium_export"
+
+	// Table ID of the VRF route exporter creates
+	RouteExporterTableID = 100
+
+	// Export PodCIDR with route exporter
+	RouteExporterExportPodCIDR = true
+
+	// Protocol ID that route exporter uses for exporting PodCIDR
+	RouteExporterPodCIDRProtocolID = 100
 )

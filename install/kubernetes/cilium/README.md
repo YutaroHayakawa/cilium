@@ -453,6 +453,12 @@ contributors across the globe, there is almost always someone available to help.
 | resourceQuotas | object | `{"cilium":{"hard":{"pods":"10k"}},"enabled":false,"operator":{"hard":{"pods":"15"}}}` | Enable resource quotas for priority classes used in the cluster. |
 | resources | object | `{}` | Agent resource limits & requests ref: https://kubernetes.io/docs/user-guide/compute-resources/ |
 | rollOutCiliumPods | bool | `false` | Roll out cilium agent pods automatically when configmap is updated. |
+| routeExporter | object | `{"enabled":false,"exportPodCIDR":true,"podCIDRProtocolID":100,"tableID":100,"vrfName":"cilium_export"}` | Enable Route Exporter that simply exports Cilium related IP routes (e.g. routes to PodCIDR) to specified VRF routing table with specified protocol ID. This can be used for integration with external routing daemon (e.g. FRR, Bird, etc) to export the routes with routing protocols (e.g. BGP, ISIS, etc). |
+| routeExporter.enabled | bool | `false` | Enables the Route Exporter |
+| routeExporter.exportPodCIDR | bool | `true` | Export routes to the PodCIDRs assigned to the local node |
+| routeExporter.podCIDRProtocolID | int | `100` | Specify the protocol ID to export PodCIDR |
+| routeExporter.tableID | int | `100` | Specify the ID of the VRF routing table |
+| routeExporter.vrfName | string | `"cilium_export"` | Route Exporter creates a Linux VRF device to write route. External routing daemon can "redistribute" route by reading the routing table of this VRF. |
 | securityContext | object | `{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false}` | Security context to be added to agent pods |
 | serviceAccounts | object | Component's fully qualified name. | Define serviceAccount names for components. |
 | serviceAccounts.clustermeshcertgen | object | `{"annotations":{},"create":true,"name":"clustermesh-apiserver-generate-certs"}` | Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob |

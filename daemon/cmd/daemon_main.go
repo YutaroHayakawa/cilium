@@ -1126,6 +1126,21 @@ func initializeFlags() {
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
 	option.BindEnv(option.EnableBGPControlPlane)
 
+	flags.Bool(option.EnableRouteExporter, defaults.EnableRouteExporter, "Enable the route exporter")
+	option.BindEnv(option.EnableRouteExporter)
+
+	flags.String(option.RouteExporterVrfName, defaults.RouteExporterVrfName, "Name of the VRF that route exporter uses")
+	option.BindEnv(option.RouteExporterVrfName)
+
+	flags.Int(option.RouteExporterTableID, defaults.RouteExporterTableID, "Table ID of the VRF that route exporter uses")
+	option.BindEnv(option.RouteExporterTableID)
+
+	flags.Bool(option.RouteExporterExportPodCIDR, defaults.RouteExporterExportPodCIDR, "Export PodCIDR with Route Exporter")
+	option.BindEnv(option.RouteExporterExportPodCIDR)
+
+	flags.Int(option.RouteExporterPodCIDRProtocolID, defaults.RouteExporterPodCIDRProtocolID, "Protocol ID that route exporter use for exporting PodCIDR")
+	option.BindEnv(option.RouteExporterPodCIDRProtocolID)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1845,6 +1860,40 @@ func runDaemon() {
 			log.WithError(err).Fatal("Error returned when instantiating BGP control plane")
 		}
 	}
+
+	/*
+		if option.Config.RouteExporterEnabled() {
+			log.Info("Initializing Route Exporter")
+
+			addressFamilies := []int{}
+			if option.Config.EnableIPv4 {
+				addressFamilies = append(addressFamilies, unix.AF_INET)
+			}
+			if option.Config.EnableIPv6 {
+				addressFamilies = append(addressFamilies, unix.AF_INET6)
+			}
+
+			rec := routeexporter.RouteExporterConfig{
+				VrfName:           option.Config.RouteExporterVrfName,
+				TableID:           option.Config.RouteExporterTableID,
+				AddressFamilies:   addressFamilies,
+				ExportPodCIDR:     option.Config.RouteExporterExportPodCIDR,
+				PodCIDRProtocolID: option.Config.RouteExporterPodCIDRProtocolID,
+			}
+
+			re, err := routeexporter.NewRouteExporter(&rec)
+			if err != nil {
+				log.Fatalf("Failed to initialize Route Exporter: %s", err.Error())
+			}
+
+			err = re.Run(d.ctx)
+			if err != nil {
+				log.Fatalf("Failed to start Route Exporter: %s", err.Error())
+			}
+
+			log.Info("Successfully initialized Route Exporter")
+		}
+	*/
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")

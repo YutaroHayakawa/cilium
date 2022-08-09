@@ -1090,6 +1090,21 @@ const (
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
+
+	// Flag to enable Route Exporter features
+	EnableRouteExporter = "enable-route-exporter"
+
+	// VRF name that Route Exporter uses
+	RouteExporterVrfName = "route-exporter-vrf-name"
+
+	// Table ID of the VRF that Route Exporter uses
+	RouteExporterTableID = "route-exporter-table-id"
+
+	// Export PodCIDRs with Route Exporter
+	RouteExporterExportPodCIDR = "route-exporter-export-pod-cidr"
+
+	// Protocol ID that Route Exporter uses for exporting PodCIDR
+	RouteExporterPodCIDRProtocolID = "route-exporter-pod-cidr-protocol-id"
 )
 
 // Default string arguments
@@ -2242,6 +2257,21 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+
+	// Enables route exporter
+	EnableRouteExporter bool
+
+	// Name of the VRF that route exporter creates
+	RouteExporterVrfName string
+
+	// Table ID of the VRF that route exporter creates
+	RouteExporterTableID int
+
+	// Protocol ID that route exporter uses
+	RouteExporterPodCIDRProtocolID int
+
+	// Export PodCIDRs with route exporter
+	RouteExporterExportPodCIDR bool
 }
 
 var (
@@ -2292,6 +2322,7 @@ var (
 		ExternalClusterIP:     defaults.ExternalClusterIP,
 		EnableVTEP:            defaults.EnableVTEP,
 		EnableBGPControlPlane: defaults.EnableBGPControlPlane,
+		EnableRouteExporter:   defaults.EnableRouteExporter,
 	}
 )
 
@@ -3243,6 +3274,13 @@ func (c *DaemonConfig) Populate() {
 
 	// Envoy secrets namespace to watch
 	c.EnvoySecretNamespace = viper.GetString(IngressSecretsNamespace)
+
+	// Enable route exporter feature
+	c.EnableRouteExporter = viper.GetBool(EnableRouteExporter)
+	c.RouteExporterVrfName = viper.GetString(RouteExporterVrfName)
+	c.RouteExporterTableID = viper.GetInt(RouteExporterTableID)
+	c.RouteExporterExportPodCIDR = viper.GetBool(RouteExporterExportPodCIDR)
+	c.RouteExporterPodCIDRProtocolID = viper.GetInt(RouteExporterPodCIDRProtocolID)
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {
@@ -3725,6 +3763,10 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 
 func (c *DaemonConfig) BGPControlPlaneEnabled() bool {
 	return c.EnableBGPControlPlane
+}
+
+func (c *DaemonConfig) RouteExporterEnabled() bool {
+	return c.EnableRouteExporter
 }
 
 // StoreViperInFile stores viper's configuration in a the given directory under

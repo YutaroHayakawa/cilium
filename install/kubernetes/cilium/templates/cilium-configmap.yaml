@@ -858,6 +858,16 @@ data:
   enable-bgp-control-plane: "false"
 {{- end }}
 
+{{- if .Values.routeExporter.enabled }}
+  enable-route-exporter: "true"
+  route-exporter-vrf-name: {{ .Values.routeExporter.vrfName }}
+  route-exporter-table-id: {{ .Values.routeExporter.tableID | quote }}
+  route-exporter-export-pod-cidr: {{ .Values.routeExporter.exportPodCIDR | quote }}
+  route-exporter-pod-cidr-protocol-id: {{ .Values.routeExporter.podCIDRProtocolID | quote }}
+{{- else }}
+  enable-route-exporter: "false"
+{{- end }}
+
 {{- if not .Values.securityContext.privileged }}
   procfs: "/host/proc"
 {{- end }}
