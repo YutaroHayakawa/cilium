@@ -104,6 +104,8 @@ spec:
                   that VRF uses.
                 format: int32
                 type: integer
+            required:
+            - tableID
             type: object
         required:
         - metadata

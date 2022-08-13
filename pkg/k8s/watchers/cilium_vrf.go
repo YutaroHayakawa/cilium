@@ -9,10 +9,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func (k *K8sWatcher) ciliumVRFInit(ciliumNPClient *k8s.K8sCiliumClient) {
@@ -20,11 +23,12 @@ func (k *K8sWatcher) ciliumVRFInit(ciliumNPClient *k8s.K8sCiliumClient) {
 
 	factory := externalversions.NewSharedInformerFactory(ciliumNPClient, time.Minute * 5)
 	vrfLister := factory.Cilium().V2alpha1().CiliumVRFs().Lister()
+	epLister := factory.Cilium().V2().CiliumEndpoints().Lister()
 	vrfInformer := factory.Cilium().V2alpha1().CiliumVRFs().Informer()
 	vrfInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(_ interface{}) { reconcileVrfs(vrfLister) },
-		UpdateFunc: func(_ interface{}, _ interface{}) { reconcileVrfs(vrfLister) },
-		DeleteFunc: func(_ interface{}) {reconcileVrfs(vrfLister) },
+		AddFunc: func(_ interface{}) { k.reconcileVrfs(vrfLister, epLister) },
+		UpdateFunc: func(_ interface{}, _ interface{}) { k.reconcileVrfs(vrfLister, epLister) },
+		DeleteFunc: func(_ interface{}) { k.reconcileVrfs(vrfLister, epLister) },
 	})
 
 	k.blockWaitGroupToSyncResources(
@@ -37,9 +41,11 @@ func (k *K8sWatcher) ciliumVRFInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	go vrfInformer.Run(k.stop)
 
 	k.k8sAPIGroups.AddAPI(apiGroup)
+
+	k.endpointManager.GetEndpoints()
 }
 
-func reconcileVrfs(vrfLister v2alpha1.CiliumVRFLister) {
+func (k *K8sWatcher) reconcileVrfs(vrfLister v2alpha1.CiliumVRFLister, epLister v2.CiliumEndpointLister) {
 	cvrfs, err := vrfLister.List(labels.NewSelector())
 	if err != nil {
 		return
@@ -68,6 +74,21 @@ func reconcileVrfs(vrfLister v2alpha1.CiliumVRFLister) {
 		// VRF doesn't exist in desired, but exists in current. Should delete it.
 		if _, ok := desiredVrfs[name]; !ok {
 			deleteVrf(name)
+		}
+	}
+
+	for _, cvrf := range cvrfs {
+		selector, err := slimmetav1.LabelSelectorAsSelector(cvrf.Spec.PodSelector)
+		if err != nil {
+			return
+		}
+
+		for _, ep := range k.endpointManager.GetEndpoints() {
+			set := labels.Set(ep.GetPod().GetLabels())
+			if !selector.Matches(set) {
+				continue
+			}
+			fmt.Printf("=== Update: %s (%d) selects %s", ep.GetContainerName(), ep.ID, cvrf.GetName())
 		}
 	}
 }

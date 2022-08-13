@@ -17,7 +17,7 @@ package v2alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
@@ -65,5 +65,5 @@ type CiliumVRFSpec struct {
 	// PodSelector selects a group of Pods belong to this VRF
 	//
 	// +kubebuilder:validation:Optional
-	PodSelector *slimv1.LabelSelector `json:"podSelector"`
+	PodSelector *slimmetav1.LabelSelector `json:"podSelector"`
 }

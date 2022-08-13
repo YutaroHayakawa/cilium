@@ -171,7 +171,7 @@ type egressGatewayManager interface {
 	OnDeleteNode(node nodeTypes.Node)
 }
 
-type routeExporterManager interface {
+type vrfManager interface {
 	OnAddVrf(vrf *v2alpha1.CiliumVRF)
 	OnDeleteVrf(vrf *v2alpha1.CiliumVRF)
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
