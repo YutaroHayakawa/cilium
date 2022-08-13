@@ -46,6 +46,14 @@ spec:
           spec:
             description: Spec is a human readable description of a VRF
             properties:
+              destinationCIDRs:
+                description: When DestinationCIDRs are specified and when destination
+                  IP matches to the specified one, packets from Pods are routed using
+                  this VRF.
+                items:
+                  type: string
+                minItems: 1
+                type: array
               podSelector:
                 description: PodSelector selects a group of Pods belong to this VRF
                 properties:
@@ -105,6 +113,8 @@ spec:
                 format: int32
                 type: integer
             required:
+            - destinationCIDRs
+            - podSelector
             - tableID
             type: object
         required:

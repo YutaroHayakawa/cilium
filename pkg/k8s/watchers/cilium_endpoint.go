@@ -205,6 +205,8 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
 	}
+
+	k.reconcileVrfs()
 }
 
 func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
@@ -232,4 +234,5 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 	if option.Config.EnableIPv4EgressGateway {
 		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
 	}
+	k.reconcileVrfs()
 }

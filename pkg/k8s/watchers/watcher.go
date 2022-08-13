@@ -226,7 +226,6 @@ type K8sWatcher struct {
 	ipcache               *ipcache.IPCache
 	envoyConfigManager    envoyConfigManager
 	routeExporter         *routeexporter.RouteExporter
-	routeExporterManager  routeExporterManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started

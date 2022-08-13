@@ -64,6 +64,13 @@ type CiliumVRFSpec struct {
 	TableID uint32 `json:"tableID"`
 	// PodSelector selects a group of Pods belong to this VRF
 	//
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	PodSelector *slimmetav1.LabelSelector `json:"podSelector"`
+	// When DestinationCIDRs are specified and when destination IP
+	// matches to the specified one, packets from Pods are routed
+	// using this VRF.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	DestinationCIDRs []string `json:"destinationCIDRs"`
 }
