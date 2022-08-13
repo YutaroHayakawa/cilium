@@ -67,6 +67,9 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2alpha1.BGPPoolName))
 	}
 
+	// TODO make this conditional
+	result = append(result, CRDResourceName(v2alpha1.CVRFName))
+
 	return result
 }
 

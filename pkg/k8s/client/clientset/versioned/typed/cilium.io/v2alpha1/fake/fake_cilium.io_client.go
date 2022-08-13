@@ -31,6 +31,10 @@ func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSlice
 	return &FakeCiliumEndpointSlices{c}
 }
 
+func (c *FakeCiliumV2alpha1) CiliumVRFs() v2alpha1.CiliumVRFInterface {
+	return &FakeCiliumVRFs{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCiliumV2alpha1) RESTClient() rest.Interface {

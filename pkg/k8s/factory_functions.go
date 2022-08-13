@@ -1143,3 +1143,25 @@ func ObjToCEC(obj interface{}) *cilium_v2.CiliumEnvoyConfig {
 		Warn("Ignoring invalid v2 Cilium Envoy Config")
 	return nil
 }
+
+// ObjToCVRF attempts to cast object to a CVRF object and
+// returns the object if the case succeeds. Otherwise, nil is returned.
+func ObjToCVRF(obj interface{}) *cilium_v2alpha1.CiliumVRF {
+	cvrf, ok := obj.(*cilium_v2alpha1.CiliumVRF)
+	if ok {
+		return cvrf
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cec, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumVRF)
+		if ok {
+			return cec
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2alpha1 Cilium VRF")
+	return nil
+}

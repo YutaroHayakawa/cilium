@@ -20,3 +20,7 @@ type CiliumEgressNATPolicyListerExpansion interface{}
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
+
+// CiliumVRFListerExpansion allows custom methods to be added to
+// CiliumVRFLister.
+type CiliumVRFListerExpansion interface{}

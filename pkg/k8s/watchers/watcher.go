@@ -69,6 +69,7 @@ const (
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumVRFV2Alpha1                = "cilium/v2alpha1::CiliumVRF"
 
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
@@ -170,6 +171,13 @@ type egressGatewayManager interface {
 	OnDeleteNode(node nodeTypes.Node)
 }
 
+type routeExporterManager interface {
+	OnAddVrf(vrf *v2alpha1.CiliumVRF)
+	OnDeleteVrf(vrf *v2alpha1.CiliumVRF)
+	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+}
+
 type envoyConfigManager interface {
 	UpsertEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
 	UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error
@@ -218,6 +226,7 @@ type K8sWatcher struct {
 	ipcache               *ipcache.IPCache
 	envoyConfigManager    envoyConfigManager
 	routeExporter         *routeexporter.RouteExporter
+	routeExporterManager  routeExporterManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -383,6 +392,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CECName):           {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):    {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPPoolName): {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.CVRFName):    {afterNodeInit, k8sAPIGroupCiliumVRFV2Alpha1},
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
@@ -546,6 +556,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.ciliumClusterwideEnvoyConfigInit(ciliumNPClient)
 		case k8sAPIGroupCiliumEnvoyConfigV2:
 			k.ciliumEnvoyConfigInit(ciliumNPClient)
+		case k8sAPIGroupCiliumVRFV2Alpha1:
+			k.ciliumVRFInit(ciliumNPClient)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,

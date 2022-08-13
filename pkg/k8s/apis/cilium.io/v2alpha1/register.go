@@ -83,6 +83,20 @@ const (
 
 	// BGPPoolName is the full name of Cilium BGP Load Balancer IP Pool
 	BGPPoolName = BGPPoolPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium VRF (CVRF)
+
+	// CVRFName is the singular name of Cilium VRF
+	CVRFSingularName = "ciliumvrf"
+
+	// CVRFPluralName is the plural name of Cilium VRF
+	CVRFPluralName = "ciliumvrfs"
+
+	// CVRFKindDefinition is the kind name of Cilium VRF
+	CVRFKindDefinition = "CiliumVRF"
+
+	// CVRFName is the full name of Cilium VRF
+	CVRFName = CVRFPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -134,6 +148,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPPeeringPolicyList{},
 		&CiliumBGPLoadBalancerIPPool{},
 		&CiliumBGPLoadBalancerIPPoolList{},
+		&CiliumVRF{},
+		&CiliumVRFList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

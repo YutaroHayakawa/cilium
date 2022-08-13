@@ -79,6 +79,7 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumnetworkpolicies
   - ciliumnodes
+  - ciliumvrfs
   verbs:
   - list
   - watch
