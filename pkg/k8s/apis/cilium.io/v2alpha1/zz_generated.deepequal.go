@@ -267,11 +267,31 @@ func (in *CiliumVRFSpec) DeepEqual(other *CiliumVRFSpec) bool {
 		return false
 	}
 
+	if in.TableID != other.TableID {
+		return false
+	}
 	if (in.PodSelector == nil) != (other.PodSelector == nil) {
 		return false
 	} else if in.PodSelector != nil {
 		if !in.PodSelector.DeepEqual(other.PodSelector) {
 			return false
+		}
+	}
+
+	if ((in.DestinationCIDRs != nil) && (other.DestinationCIDRs != nil)) || ((in.DestinationCIDRs == nil) != (other.DestinationCIDRs == nil)) {
+		in, other := &in.DestinationCIDRs, &other.DestinationCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
 		}
 	}
 

@@ -448,6 +448,11 @@ func (in *CiliumVRFSpec) DeepCopyInto(out *CiliumVRFSpec) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DestinationCIDRs != nil {
+		in, out := &in.DestinationCIDRs, &out.DestinationCIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -272,11 +272,11 @@ routeExporter:
   # -- Export routes to the LBIP assigned to the local service
   exportLBIP: true
   # -- Export PodCIDR routes to this VRF
-  LBIPVrfName: "cilium_lbip"
+  lbIPVrfName: "cilium_lbip"
   # -- Table ID used by PodCIDR VRF
-  LBIPTableID: 101
+  lbIPTableID: 101
   # -- Protocol ID used to export PodCIDR
-  LBIPProtocolID: 101
+  lbIPProtocolID: 101
 
 bpf:
   # -- Configure the mount point for the BPF filesystem
@@ -307,7 +307,7 @@ bpf:
   # -- Configure the maximum number of entries for the neighbor table.
   # neighMax: 524288
 
-  # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
+  # -- Configure the maximum number of entries in endpoint policy map ().
   policyMapMax: 16384
 
   # -- Configure auto-sizing for all BPF maps based on available memory.

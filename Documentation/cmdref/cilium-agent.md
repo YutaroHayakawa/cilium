@@ -123,6 +123,7 @@ cilium-agent [flags]
       --enable-policy string                                    Enable policy enforcement (default "default")
       --enable-recorder                                         Enable BPF datapath pcap recorder
       --enable-remote-node-identity                             Enable use of remote node identity
+      --enable-route-exporter                                   Enable the route exporter
       --enable-runtime-device-detection                         Enable runtime device detection and datapath reconfiguration (experimental)
       --enable-service-topology                                 Enable support for service topology aware hints
       --enable-session-affinity                                 Enable support for service session affinity
@@ -241,6 +242,14 @@ cilium-agent [flags]
       --proxy-prometheus-port int                               Port to serve Envoy metrics on. Default 0 (disabled).
       --read-cni-conf string                                    Read to the CNI configuration at specified path to extract per node configuration
       --restore                                                 Restores state, if possible, from previous daemon (default true)
+      --route-exporter-export-lb-ip                             Export LB IP with Route Exporter (default true)
+      --route-exporter-export-pod-cidr                          Export PodCIDR with Route Exporter (default true)
+      --route-exporter-lb-ip-protocol-id int                    Protocol ID that route exporter use for exporting LB IP (default 101)
+      --route-exporter-lb-ip-table-id int                       Table ID of the LB IP VRF (default 101)
+      --route-exporter-lb-ip-vrf-name string                    Export LB IP to this VRF (default "cilium_lbip")
+      --route-exporter-pod-cidr-protocol-id int                 Protocol ID that route exporter use for exporting PodCIDR (default 100)
+      --route-exporter-pod-cidr-table-id int                    Table ID of the PodCIDR VRF (default 100)
+      --route-exporter-pod-cidr-vrf-name string                 Export PodCIDR to this VRF (default "cilium_podcidr")
       --route-metric int                                        Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --sidecar-istio-proxy-image string                        Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                                    Use a single cluster route instead of per node routes

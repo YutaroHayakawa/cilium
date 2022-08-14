@@ -77,7 +77,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.monitorAggregation | string | `"medium"` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. |
 | bpf.monitorFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
 | bpf.monitorInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
-| bpf.policyMapMax | int | `16384` | Configure the maximum number of entries in endpoint policy map (per endpoint). |
+| bpf.policyMapMax | int | `16384` | Configure the maximum number of entries in endpoint policy map (). |
 | bpf.preallocateMaps | bool | `false` | Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency. |
 | bpf.root | string | `"/sys/fs/bpf"` | Configure the mount point for the BPF filesystem |
 | certgen | object | `{"image":{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
@@ -453,14 +453,15 @@ contributors across the globe, there is almost always someone available to help.
 | resourceQuotas | object | `{"cilium":{"hard":{"pods":"10k"}},"enabled":false,"operator":{"hard":{"pods":"15"}}}` | Enable resource quotas for priority classes used in the cluster. |
 | resources | object | `{}` | Agent resource limits & requests ref: https://kubernetes.io/docs/user-guide/compute-resources/ |
 | rollOutCiliumPods | bool | `false` | Roll out cilium agent pods automatically when configmap is updated. |
-| routeExporter | object | `{"enabled":false,"exportLBIP":true,"exportPodCIDR":true,"lbIPProtocolID":101,"podCIDRProtocolID":100,"tableID":100,"vrfName":"cilium_export"}` | Enable Route Exporter that simply exports Cilium related IP routes (e.g. routes to PodCIDR) to specified VRF routing table with specified protocol ID. This can be used for integration with external routing daemon (e.g. FRR, Bird, etc) to export the routes with routing protocols (e.g. BGP, ISIS, etc). |
-| routeExporter.enabled | bool | `false` | Enables the Route Exporter |
+| routeExporter | object | `{"enabled":false,"exportLBIP":true,"exportPodCIDR":true,"lbIPProtocolID":101,"lbIPTableID":101,"lbIPVrfName":"cilium_lbip","podCIDRProtocolID":100,"podCIDRTableID":100,"podCIDRVrfName":"cilium_podcidr"}` | Enable Route Exporter that simply exports Cilium related IP routes (e.g. routes to PodCIDR) to specified VRF routing table with specified protocol ID. This can be used for integration with external routing daemon (e.g. FRR, Bird, etc) to export the routes with routing protocols (e.g. BGP, ISIS, etc). |
 | routeExporter.exportLBIP | bool | `true` | Export routes to the LBIP assigned to the local service |
 | routeExporter.exportPodCIDR | bool | `true` | Export routes to the PodCIDRs assigned to the local node |
-| routeExporter.lbIPProtocolID | int | `101` | Specify the protocol ID to export LBIP |
-| routeExporter.podCIDRProtocolID | int | `100` | Specify the protocol ID to export PodCIDR |
-| routeExporter.tableID | int | `100` | Specify the ID of the VRF routing table |
-| routeExporter.vrfName | string | `"cilium_export"` | Route Exporter creates a Linux VRF device to write route. External routing daemon can "redistribute" route by reading the routing table of this VRF. |
+| routeExporter.lbIPProtocolID | int | `101` | Protocol ID used to export PodCIDR |
+| routeExporter.lbIPTableID | int | `101` | Table ID used by PodCIDR VRF |
+| routeExporter.lbIPVrfName | string | `"cilium_lbip"` | Export PodCIDR routes to this VRF |
+| routeExporter.podCIDRProtocolID | int | `100` | Protocol ID used to export PodCIDR |
+| routeExporter.podCIDRTableID | int | `100` | Table ID used by PodCIDR VRF |
+| routeExporter.podCIDRVrfName | string | `"cilium_podcidr"` | Export PodCIDR routes to this VRF |
 | securityContext | object | `{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false}` | Security context to be added to agent pods |
 | serviceAccounts | object | Component's fully qualified name. | Define serviceAccount names for components. |
 | serviceAccounts.clustermeshcertgen | object | `{"annotations":{},"create":true,"name":"clustermesh-apiserver-generate-certs"}` | Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob |
