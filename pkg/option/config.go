@@ -1094,22 +1094,28 @@ const (
 	// Flag to enable Route Exporter features
 	EnableRouteExporter = "enable-route-exporter"
 
-	// VRF name that Route Exporter uses
-	RouteExporterVrfName = "route-exporter-vrf-name"
+	// Export PodCIDR with Route Exporter
+	RouteExporterExportPodCIDR = "route-exporter-export-pod-cidr"
+
+	// Export PodCIDR to this VRF
+	RouteExporterPodCIDRVrfName = "route-exporter-pod-cidr-vrf-name"
 
 	// Table ID of the VRF that Route Exporter uses
-	RouteExporterTableID = "route-exporter-table-id"
-
-	// Export PodCIDRs with Route Exporter
-	RouteExporterExportPodCIDR = "route-exporter-export-pod-cidr"
+	RouteExporterPodCIDRTableID = "route-exporter-pod-cidr-table-id"
 
 	// Protocol ID that Route Exporter uses for exporting PodCIDR
 	RouteExporterPodCIDRProtocolID = "route-exporter-pod-cidr-protocol-id"
 
-	// Export LB VIP with Route Exporter
+	// Export LB IP with Route Exporter
 	RouteExporterExportLBIP = "route-exporter-export-lb-ip"
 
-	// Protocol ID that Route Exporter uses for exporting LB VIP
+	// Export LB IP to this VRF
+	RouteExporterLBIPVrfName = "route-exporter-lb-ip-vrf-name"
+
+	// Table ID of the VRF that Route Exporter uses
+	RouteExporterLBIPTableID = "route-exporter-lb-ip-table-id"
+
+	// Protocol ID that Route Exporter uses for exporting LBIP
 	RouteExporterLBIPProtocolID = "route-exporter-lb-ip-protocol-id"
 )
 
@@ -2267,22 +2273,28 @@ type DaemonConfig struct {
 	// Enables route exporter
 	EnableRouteExporter bool
 
-	// Name of the VRF that route exporter creates
-	RouteExporterVrfName string
-
-	// Table ID of the VRF that route exporter creates
-	RouteExporterTableID int
-
-	// Export PodCIDRs with route exporter
+	// Export PodCIDR with route exporter
 	RouteExporterExportPodCIDR bool
+
+	// Export PodCIDR to this VRF
+	RouteExporterPodCIDRVrfName string
+
+	// Table ID of the VRF for PodCIDR
+	RouteExporterPodCIDRTableID int
 
 	// Protocol ID that route exporter uses for PodCIDR
 	RouteExporterPodCIDRProtocolID int
 
-	// Export LB VIP with route exporter
+	// Export LB IP with route exporter
 	RouteExporterExportLBIP bool
 
-	// Protocol ID that route exporter used for LB VIP
+	// Export LB IP to this VRF
+	RouteExporterLBIPVrfName string
+
+	// Table ID of the VRF for LB IP
+	RouteExporterLBIPTableID int
+
+	// Protocol ID that route exporter uses for LB IP
 	RouteExporterLBIPProtocolID int
 }
 
@@ -3289,11 +3301,13 @@ func (c *DaemonConfig) Populate() {
 
 	// Enable route exporter feature
 	c.EnableRouteExporter = viper.GetBool(EnableRouteExporter)
-	c.RouteExporterVrfName = viper.GetString(RouteExporterVrfName)
-	c.RouteExporterTableID = viper.GetInt(RouteExporterTableID)
 	c.RouteExporterExportPodCIDR = viper.GetBool(RouteExporterExportPodCIDR)
+	c.RouteExporterPodCIDRVrfName = viper.GetString(RouteExporterPodCIDRVrfName)
+	c.RouteExporterPodCIDRTableID = viper.GetInt(RouteExporterPodCIDRTableID)
 	c.RouteExporterPodCIDRProtocolID = viper.GetInt(RouteExporterPodCIDRProtocolID)
 	c.RouteExporterExportLBIP = viper.GetBool(RouteExporterExportLBIP)
+	c.RouteExporterLBIPVrfName = viper.GetString(RouteExporterLBIPVrfName)
+	c.RouteExporterLBIPTableID = viper.GetInt(RouteExporterLBIPTableID)
 	c.RouteExporterLBIPProtocolID = viper.GetInt(RouteExporterLBIPProtocolID)
 }
 

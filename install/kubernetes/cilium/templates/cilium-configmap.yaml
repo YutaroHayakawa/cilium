@@ -860,11 +860,13 @@ data:
 
 {{- if .Values.routeExporter.enabled }}
   enable-route-exporter: "true"
-  route-exporter-vrf-name: {{ .Values.routeExporter.vrfName }}
-  route-exporter-table-id: {{ .Values.routeExporter.tableID | quote }}
-  route-exporter-export-pod-cidr: {{ .Values.routeExporter.exportPodCIDR | quote }}
+  route-exporter-export-pod-cidr: {{ .Values.routeExporter.exportPodCIDR }}
+  route-exporter-pod-cidr-vrf-name: {{ .Values.routeExporter.podCIDRVrfName }}
+  route-exporter-pod-cidr-table-id: {{ .Values.routeExporter.podCIDRTableID | quote }}
   route-exporter-pod-cidr-protocol-id: {{ .Values.routeExporter.podCIDRProtocolID | quote }}
-  route-exporter-export-lb-ip: {{ .Values.routeExporter.exportLBIP | quote }}
+  route-exporter-export-lb-ip: {{ .Values.routeExporter.exportLBIP }}
+  route-exporter-lb-ip-vrf-name: {{ .Values.routeExporter.lbIPVrfName }}
+  route-exporter-lb-ip-table-id: {{ .Values.routeExporter.lbIPTableID | quote }}
   route-exporter-lb-ip-protocol-id: {{ .Values.routeExporter.lbIPProtocolID | quote }}
 {{- else }}
   enable-route-exporter: "false"

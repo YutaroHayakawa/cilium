@@ -260,21 +260,23 @@ bgpControlPlane:
 # ID. This can be used for integration with external routing daemon (e.g. FRR,
 # Bird, etc) to export the routes with routing protocols (e.g. BGP, ISIS, etc).
 routeExporter:
-  # -- Enables the Route Exporter
   enabled: false
-  # -- Route Exporter creates a Linux VRF device to write route. External routing
-  # daemon can "redistribute" route by reading the routing table of this VRF.
-  vrfName: "cilium_export"
-  # -- Specify the ID of the VRF routing table
-  tableID: 100
   # -- Export routes to the PodCIDRs assigned to the local node
   exportPodCIDR: true
-  # -- Specify the protocol ID to export PodCIDR
+  # -- Export PodCIDR routes to this VRF
+  podCIDRVrfName: "cilium_podcidr"
+  # -- Table ID used by PodCIDR VRF
+  podCIDRTableID: 100
+  # -- Protocol ID used to export PodCIDR
   podCIDRProtocolID: 100
   # -- Export routes to the LBIP assigned to the local service
   exportLBIP: true
-  # -- Specify the protocol ID to export LBIP
-  lbIPProtocolID: 101
+  # -- Export PodCIDR routes to this VRF
+  LBIPVrfName: "cilium_lbip"
+  # -- Table ID used by PodCIDR VRF
+  LBIPTableID: 101
+  # -- Protocol ID used to export PodCIDR
+  LBIPProtocolID: 101
 
 bpf:
   # -- Configure the mount point for the BPF filesystem

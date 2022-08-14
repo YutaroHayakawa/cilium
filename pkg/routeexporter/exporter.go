@@ -10,59 +10,69 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type RouteExporterConfig struct {
-	VrfName           string
-	TableID           int
+type RouteExporterOptions struct {
 	ExportPodCIDR     bool
+	PodCIDRVrfName    string
+	PodCIDRTableID    int
 	PodCIDRProtocolID int
 	ExportLBIP        bool
+	LBIPVrfName       string
+	LBIPTableID       int
 	LBIPProtocolID    int
 }
 
 type RouteExporter struct {
 	lock.Mutex
-	RouteExporterConfig
+	RouteExporterOptions
 	podCIDRSyncerLastError error
 	lbIPSyncerLastError    error
 }
 
-func NewRouteExporter(rec *RouteExporterConfig) (*RouteExporter, error) {
-	if rec == nil {
+func NewRouteExporter(opts *RouteExporterOptions) (*RouteExporter, error) {
+	if opts == nil {
 		return nil, fmt.Errorf("no configuration provided")
 	}
 
-	if rec.VrfName == "" {
-		return nil, fmt.Errorf("no VRF name specified")
-	}
+	if opts.ExportPodCIDR {
+		if opts.PodCIDRVrfName == "" {
+			return nil, fmt.Errorf("no VRF name specified for PodCIDR")
+		}
 
-	if rec.TableID == 0 {
-		return nil, fmt.Errorf("no table ID specified")
-	}
+		if opts.PodCIDRTableID == 0 {
+			return nil, fmt.Errorf("no table ID specified for PodCIDR")
+		}
 
-	if rec.ExportPodCIDR {
-		err := validateProtocolID(rec.PodCIDRProtocolID)
+		err := validateProtocolID(opts.PodCIDRProtocolID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid protocol ID specified for PodCIDR: %s", err.Error())
 		}
 	}
 
-	if rec.ExportLBIP {
-		err := validateProtocolID(rec.PodCIDRProtocolID)
+	if opts.ExportLBIP {
+		if opts.LBIPVrfName == "" {
+			return nil, fmt.Errorf("no VRF name specified for LBIP")
+		}
+
+		if opts.LBIPTableID == 0 {
+			return nil, fmt.Errorf("no table ID specified for LBIP")
+		}
+
+		err := validateProtocolID(opts.LBIPProtocolID)
 		if err != nil {
-			return nil, fmt.Errorf("invalid protocol ID specified for LB IP: %s", err.Error())
+			return nil, fmt.Errorf("invalid protocol ID specified for LBIP: %s", err.Error())
 		}
 	}
 
-	return &RouteExporter{RouteExporterConfig: *rec}, nil
+	return &RouteExporter{RouteExporterOptions: *opts}, nil
 }
 
 func (re *RouteExporter) UpdateOrDeletePodCIDRRoutes(updatedPrefixes, deletedPrefixes []*cidr.CIDR) {
 	re.Lock()
 	defer re.Unlock()
-	if err := updateKernelRoutes(re.VrfName, re.TableID, re.PodCIDRProtocolID, updatedPrefixes); err != nil {
+	if err := updateKernelRoutes(re.PodCIDRVrfName, re.PodCIDRTableID, re.PodCIDRProtocolID, updatedPrefixes); err != nil {
 		re.podCIDRSyncerLastError = err
 	}
-	if err := deleteKernelRoutes(re.VrfName, re.TableID, re.PodCIDRProtocolID, deletedPrefixes); err != nil {
+	if err := deleteKernelRoutes(re.PodCIDRVrfName, re.PodCIDRTableID, re.PodCIDRProtocolID, deletedPrefixes); err != nil {
 		re.podCIDRSyncerLastError = err
 	}
 }
@@ -70,10 +80,10 @@ func (re *RouteExporter) UpdateOrDeletePodCIDRRoutes(updatedPrefixes, deletedPre
 func (re *RouteExporter) UpdateOrDeleteLBIPRoutes(updatedPrefixes, deletedPrefixes []*cidr.CIDR) {
 	re.Lock()
 	defer re.Unlock()
-	if err := updateKernelRoutes(re.VrfName, re.TableID, re.LBIPProtocolID, updatedPrefixes); err != nil {
+	if err := updateKernelRoutes(re.LBIPVrfName, re.LBIPTableID, re.LBIPProtocolID, updatedPrefixes); err != nil {
 		re.lbIPSyncerLastError = err
 	}
-	if err := deleteKernelRoutes(re.VrfName, re.TableID, re.LBIPProtocolID, deletedPrefixes); err != nil {
+	if err := deleteKernelRoutes(re.LBIPVrfName, re.LBIPTableID, re.LBIPProtocolID, deletedPrefixes); err != nil {
 		re.lbIPSyncerLastError = err
 	}
 }

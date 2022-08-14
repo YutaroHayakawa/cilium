@@ -483,20 +483,26 @@ const (
 	// Enable route exporter
 	EnableRouteExporter = false
 
-	// Name of the VRF that route exporter creates
-	RouteExporterVrfName = "cilium_export"
-
-	// Table ID of the VRF route exporter creates
-	RouteExporterTableID = 100
-
 	// Export PodCIDR with route exporter
 	RouteExporterExportPodCIDR = true
+
+	// Export PodCIDR to this VRF
+	RouteExporterPodCIDRVrfName = "cilium_podcidr"
+
+	// Table ID of the VRF route exporter creates for PodCIDR
+	RouteExporterPodCIDRTableID = 100
 
 	// Protocol ID that route exporter uses for exporting PodCIDR
 	RouteExporterPodCIDRProtocolID = 100
 
-	// Export LBIP with route exporter
+	// Export LB IP with route exporter
 	RouteExporterExportLBIP = true
+
+	// Export LB IP to this VRF
+	RouteExporterLBIPVrfName = "cilium_lbip"
+
+	// Table ID of the VRF route exporter creates for LB IP
+	RouteExporterLBIPTableID = 101
 
 	// Protocol ID that route exporter uses for exporting LBIP
 	RouteExporterLBIPProtocolID = 101

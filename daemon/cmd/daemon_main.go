@@ -1130,22 +1130,28 @@ func initializeFlags() {
 	flags.Bool(option.EnableRouteExporter, defaults.EnableRouteExporter, "Enable the route exporter")
 	option.BindEnv(option.EnableRouteExporter)
 
-	flags.String(option.RouteExporterVrfName, defaults.RouteExporterVrfName, "Name of the VRF that route exporter uses")
-	option.BindEnv(option.RouteExporterVrfName)
-
-	flags.Int(option.RouteExporterTableID, defaults.RouteExporterTableID, "Table ID of the VRF that route exporter uses")
-	option.BindEnv(option.RouteExporterTableID)
-
 	flags.Bool(option.RouteExporterExportPodCIDR, defaults.RouteExporterExportPodCIDR, "Export PodCIDR with Route Exporter")
 	option.BindEnv(option.RouteExporterExportPodCIDR)
+
+	flags.String(option.RouteExporterPodCIDRVrfName, defaults.RouteExporterPodCIDRVrfName, "Export PodCIDR to this VRF")
+	option.BindEnv(option.RouteExporterPodCIDRVrfName)
+
+	flags.Int(option.RouteExporterPodCIDRTableID, defaults.RouteExporterPodCIDRTableID, "Table ID of the PodCIDR VRF")
+	option.BindEnv(option.RouteExporterPodCIDRTableID)
 
 	flags.Int(option.RouteExporterPodCIDRProtocolID, defaults.RouteExporterPodCIDRProtocolID, "Protocol ID that route exporter use for exporting PodCIDR")
 	option.BindEnv(option.RouteExporterPodCIDRProtocolID)
 
-	flags.Bool(option.RouteExporterExportLBIP, defaults.RouteExporterExportLBIP, "Export LBIP with Route Exporter")
+	flags.Bool(option.RouteExporterExportLBIP, defaults.RouteExporterExportLBIP, "Export LB IP with Route Exporter")
 	option.BindEnv(option.RouteExporterExportLBIP)
 
-	flags.Int(option.RouteExporterLBIPProtocolID, defaults.RouteExporterLBIPProtocolID, "Protocol ID that route exporter use for exporting LBIP")
+	flags.String(option.RouteExporterLBIPVrfName, defaults.RouteExporterLBIPVrfName, "Export LB IP to this VRF")
+	option.BindEnv(option.RouteExporterLBIPVrfName)
+
+	flags.Int(option.RouteExporterLBIPTableID, defaults.RouteExporterLBIPTableID, "Table ID of the LB IP VRF")
+	option.BindEnv(option.RouteExporterLBIPTableID)
+
+	flags.Int(option.RouteExporterLBIPProtocolID, defaults.RouteExporterLBIPProtocolID, "Protocol ID that route exporter use for exporting LB IP")
 	option.BindEnv(option.RouteExporterLBIPProtocolID)
 
 	viper.BindPFlags(flags)
@@ -1682,12 +1688,14 @@ func runDaemon() {
 	var routeExporter *routeexporter.RouteExporter
 	if option.Config.EnableRouteExporter {
 		var err error
-		routeExporter, err = routeexporter.NewRouteExporter(&routeexporter.RouteExporterConfig{
-			VrfName:           option.Config.RouteExporterVrfName,
-			TableID:           option.Config.RouteExporterTableID,
+		routeExporter, err = routeexporter.NewRouteExporter(&routeexporter.RouteExporterOptions{
 			ExportPodCIDR:     option.Config.RouteExporterExportPodCIDR,
+			PodCIDRVrfName:    option.Config.RouteExporterPodCIDRVrfName,
+			PodCIDRTableID:    option.Config.RouteExporterPodCIDRTableID,
 			PodCIDRProtocolID: option.Config.RouteExporterPodCIDRProtocolID,
 			ExportLBIP:        option.Config.RouteExporterExportLBIP,
+			LBIPVrfName:       option.Config.RouteExporterLBIPVrfName,
+			LBIPTableID:       option.Config.RouteExporterLBIPTableID,
 			LBIPProtocolID:    option.Config.RouteExporterLBIPProtocolID,
 		})
 		if err != nil {

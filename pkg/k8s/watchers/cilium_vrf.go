@@ -7,35 +7,35 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
-var mutex sync.Mutex
+var mutex lock.Mutex
 var vrfLister v2alpha1.CiliumVRFLister
 
 type Rule struct {
-	srcIP string
-	table int
+	srcIP           string
+	table           int
 	destinationCIDR string
 }
 
 func (k *K8sWatcher) ciliumVRFInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	apiGroup := k8sAPIGroupCiliumVRFV2Alpha1
 
-	factory := externalversions.NewSharedInformerFactory(ciliumNPClient, time.Minute * 5)
+	factory := externalversions.NewSharedInformerFactory(ciliumNPClient, time.Minute*5)
 	vrfLister = factory.Cilium().V2alpha1().CiliumVRFs().Lister()
 	vrfInformer := factory.Cilium().V2alpha1().CiliumVRFs().Informer()
 	vrfInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(_ interface{}) { k.reconcileVrfs() },
+		AddFunc:    func(_ interface{}) { k.reconcileVrfs() },
 		UpdateFunc: func(_ interface{}, _ interface{}) { k.reconcileVrfs() },
 		DeleteFunc: func(_ interface{}) { k.reconcileVrfs() },
 	})
@@ -120,8 +120,8 @@ func (k *K8sWatcher) reconcileVrfs() {
 			if selector.Matches(set) {
 				for _, destinationCIDR := range cvrf.Spec.DestinationCIDRs {
 					desiredRules[Rule{
-						srcIP: ep.GetIPv4Address() + "/32",
-						table: int(cvrf.Spec.TableID),
+						srcIP:           ep.GetIPv4Address() + "/32",
+						table:           int(cvrf.Spec.TableID),
 						destinationCIDR: destinationCIDR,
 					}] = struct{}{}
 				}
@@ -156,8 +156,8 @@ func getRules() (map[Rule]struct{}, error) {
 	ret := make(map[Rule]struct{})
 	for _, nlRule := range nlRules {
 		ret[Rule{
-			srcIP: nlRule.Src.String(),
-			table: nlRule.Table,
+			srcIP:           nlRule.Src.String(),
+			table:           nlRule.Table,
 			destinationCIDR: nlRule.Dst.String(),
 		}] = struct{}{}
 	}
@@ -221,7 +221,7 @@ func getVrfs() ([]*netlink.Vrf, error) {
 			vrfs = append(vrfs, vrf)
 		}
 	}
-	
+
 	return vrfs, nil
 }
 
