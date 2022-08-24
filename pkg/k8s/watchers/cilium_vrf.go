@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/labels"
@@ -83,6 +84,7 @@ func (k *K8sWatcher) reconcileVrfs() {
 	}
 
 	for name, index := range desiredVrfs {
+		// desiredVRFs doesn't contain prefix
 		ensureVrf(name, index)
 	}
 
@@ -218,6 +220,13 @@ func getVrfs() ([]*netlink.Vrf, error) {
 	vrfs := []*netlink.Vrf{}
 	for _, link := range links {
 		if vrf, ok := link.(*netlink.Vrf); ok {
+			name := vrf.Name
+			if option.Config.EnableRouteExporter &&
+				(name == option.Config.RouteExporterLBIPVrfName ||
+					name == option.Config.RouteExporterPodCIDRVrfName) {
+				// Don't touch to the route exporter's VRF
+				continue
+			}
 			vrfs = append(vrfs, vrf)
 		}
 	}

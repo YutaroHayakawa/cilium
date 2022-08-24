@@ -137,14 +137,19 @@ func getOrCreateVrf(vrfName string, tableID int) (netlink.Link, error) {
 }
 
 func updateKernelRoutes(vrfName string, tableID, protocolID int, prefixes []*cidr.CIDR) error {
-	vrf, err := getOrCreateVrf(vrfName, tableID)
+	_, err := getOrCreateVrf(vrfName, tableID)
+	if err != nil {
+		return err
+	}
+
+	link, err := netlink.LinkByName("cilium_host")
 	if err != nil {
 		return err
 	}
 
 	for _, prefix := range prefixes {
 		route := netlink.Route{
-			LinkIndex: vrf.Attrs().Index,
+			LinkIndex: link.Attrs().Index,
 			Dst:       prefix.IPNet,
 			Table:     tableID,
 			Protocol:  netlink.RouteProtocol(protocolID),
@@ -159,14 +164,19 @@ func updateKernelRoutes(vrfName string, tableID, protocolID int, prefixes []*cid
 }
 
 func deleteKernelRoutes(vrfName string, tableID, protocolID int, prefixes []*cidr.CIDR) error {
-	vrf, err := getOrCreateVrf(vrfName, tableID)
+	_, err := getOrCreateVrf(vrfName, tableID)
+	if err != nil {
+		return err
+	}
+
+	link, err := netlink.LinkByName("cilium_host")
 	if err != nil {
 		return err
 	}
 
 	for _, prefix := range prefixes {
 		route := netlink.Route{
-			LinkIndex: vrf.Attrs().Index,
+			LinkIndex: link.Attrs().Index,
 			Dst:       prefix.IPNet,
 			Table:     tableID,
 			Protocol:  netlink.RouteProtocol(protocolID),
