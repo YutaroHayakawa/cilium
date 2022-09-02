@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -172,8 +173,13 @@ func updateService(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
+		addrCluster, ok := cmtypes.AddrClusterFromIP(beAddr.IP)
+		if !ok {
+			Fatalf("Cannot parse backend address \"%s\"", backend)
+		}
+
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, addrCluster, uint16(beAddr.Port))
 
 		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
