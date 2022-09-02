@@ -103,6 +103,11 @@ func AddrClusterFromIP(ip net.IP) (AddrCluster, bool) {
 	return AddrCluster{addr: addr, clusterID: 0}, true
 }
 
+// AddrClusterFrom creates AddrCluster from netip.Addr and ClusterID
+func AddrClusterFrom(addr netip.Addr, clusterID uint32) AddrCluster {
+	return AddrCluster{addr: addr, clusterID: clusterID}
+}
+
 // Addr returns IP address part of AddrCluster as netip.Addr. This function
 // exists for keeping backward compatibility between the existing components
 // which are not aware of the cluster-aware addressing. Calling this function
