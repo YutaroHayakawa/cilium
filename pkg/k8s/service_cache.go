@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -500,9 +501,9 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	if hasLocalEndpoints {
 		localEndpoints = s.filterEndpoints(localEndpoints, svc)
 
-		for ip, e := range localEndpoints.Backends {
+		for addrCluster, e := range localEndpoints.Backends {
 			e.Preferred = svcFound && svc.IncludeExternal && svc.ServiceAffinity == serviceAffinityLocal
-			endpoints.Backends[ip] = e
+			endpoints.Backends[addrCluster] = e
 		}
 	}
 
@@ -513,17 +514,17 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 			// EndpointSlices so no need to search the endpoints of a particular
 			// EndpointSlice.
 			for clusterName, remoteClusterEndpoints := range externalEndpoints.endpoints {
-				for ip, e := range remoteClusterEndpoints.Backends {
-					if _, ok := endpoints.Backends[ip]; ok {
+				for addrCluster, e := range remoteClusterEndpoints.Backends {
+					if _, ok := endpoints.Backends[addrCluster]; ok {
 						log.WithFields(logrus.Fields{
 							logfields.K8sSvcName:   id.Name,
 							logfields.K8sNamespace: id.Namespace,
-							logfields.IPAddr:       ip,
-							"cluster":              clusterName,
+							logfields.AddrCluster:  addrCluster.String(),
+							logfields.ClusterName:  clusterName,
 						}).Warning("Conflicting service backend IP")
 					} else {
 						e.Preferred = svc.ServiceAffinity == serviceAffinityRemote
-						endpoints.Backends[ip] = e
+						endpoints.Backends[addrCluster] = e
 					}
 				}
 			}
@@ -568,7 +569,18 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
 		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
+			var addrCluster cmtypes.AddrCluster
+
+			// When remote cluster associated with this service has an overlapping PodCIDR,
+			// we must identify remote backends with IP + ClusterID.
+			addr := netip.MustParseAddr(ipString)
+			if service.HasOverlappingPodCIDR {
+				addrCluster = cmtypes.AddrClusterFrom(addr, service.ClusterID)
+			} else {
+				addrCluster = cmtypes.AddrClusterFrom(addr, 0)
+			}
+
+			backends[addrCluster] = &Backend{Ports: portConfig}
 		}
 		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 			Backends: backends,

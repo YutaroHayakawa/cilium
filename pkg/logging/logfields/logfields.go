@@ -238,6 +238,9 @@ const (
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
+	// AddrCluster is the IP + ClusterID address used for cluster-aware addressing
+	AddrCluster = "addrCluster"
+
 	// ServiceID is the orchestration unique ID of a service
 	ServiceID = "serviceID"
 
