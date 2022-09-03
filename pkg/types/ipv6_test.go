@@ -7,6 +7,7 @@ package types
 
 import (
 	"net"
+	"net/netip"
 
 	"gopkg.in/check.v1"
 
@@ -25,6 +26,13 @@ func (s *IPv6Suite) TestIP(c *check.C) {
 	result := testIPv6Address.IP()
 
 	c.Assert(result, checker.DeepEquals, expectedAddress)
+}
+
+func (s *IPv6Suite) TestAddr(c *check.C) {
+	expectedAddress := netip.MustParseAddr("f00d::ac10:14:0:1")
+	result := testIPv6Address.Addr()
+
+	c.Assert(result, check.Equals, expectedAddress)
 }
 
 func (s *IPv6Suite) TestString(c *check.C) {

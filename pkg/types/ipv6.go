@@ -5,6 +5,7 @@ package types
 
 import (
 	"net"
+	"net/netip"
 )
 
 // IPv6 is the binary representation for encoding in binary structs.
@@ -12,6 +13,10 @@ type IPv6 [16]byte
 
 func (v6 IPv6) IP() net.IP {
 	return v6[:]
+}
+
+func (v6 IPv6) Addr() netip.Addr {
+	return netip.AddrFrom16(v6)
 }
 
 func (v6 IPv6) String() string {
