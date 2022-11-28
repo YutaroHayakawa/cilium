@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -400,9 +401,16 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// Also wait for all cluster mesh to be synchronized with the
 				// datapath before proceeding.
 				if d.clustermesh != nil {
-					err := d.clustermesh.ClustersSynced(context.Background())
-					if err != nil {
-						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+					log.Info("Waiting for clusters to be locally synchronized")
+					for {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						err := d.clustermesh.ClustersSynced(ctx)
+						cancel()
+						if err != nil {
+							log.WithError(err).Error("timeout while waiting for all clusters to be locally synchronized")
+							continue
+						}
+						break
 					}
 				}
 				// Start controller which removes any leftover Kubernetes
