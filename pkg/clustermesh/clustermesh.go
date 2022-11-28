@@ -257,18 +257,19 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 // ClustersSynced returns after all clusters were synchronized with the bpf
 // datapath.
 func (cm *ClusterMesh) ClustersSynced(ctx context.Context) error {
+	swgs := make(map[string]*lock.StoppableWaitGroup)
+
 	cm.mutex.RLock()
-	swgs := make([]*lock.StoppableWaitGroup, 0, len(cm.clusters))
 	for _, cluster := range cm.clusters {
-		swgs = append(swgs, cluster.swg)
+		swgs[cluster.name] = cluster.swg
 	}
 	cm.mutex.RUnlock()
 
-	for _, swg := range swgs {
+	for cluster, swg := range swgs {
 		select {
 		case <-swg.WaitChannel():
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("Got ctx.Done() while waiting for cluster %s: %w", cluster, ctx.Err())
 		}
 	}
 	return nil
