@@ -156,7 +156,6 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		mesh.globalServices.onUpdate(svc)
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
-			r.swg.Add()
 			merger.MergeExternalServiceUpdate(svc, r.swg)
 		} else {
 			scopedLog.Debugf("Ignoring remote service update. Missing merger function")
