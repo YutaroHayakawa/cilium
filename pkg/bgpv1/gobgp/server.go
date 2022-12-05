@@ -7,9 +7,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
+	"github.com/cilium/cilium/pkg/option"
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
+	"google.golang.org/grpc"
 	apb "google.golang.org/protobuf/types/known/anypb"
 
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -153,6 +156,11 @@ func (sc *ServerWithConfig) AddNeighbor(ctx context.Context, n *v2alpha1api.Cili
 						Family: GoBGPIPv6Family,
 					},
 				},
+			},
+
+			EbgpMultihop: &gobgp.EbgpMultihop{
+				Enabled:     true,
+				MultihopTtl: 255,
 			},
 		},
 	}
