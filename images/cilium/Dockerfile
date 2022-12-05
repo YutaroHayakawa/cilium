@@ -90,6 +90,10 @@ COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
 WORKDIR /home/cilium
 
+ADD https://github.com/osrg/gobgp/releases/download/v3.9.0/gobgp_3.9.0_linux_amd64.tar.gz .
+RUN tar xvf gobgp_3.9.0_linux_amd64.tar.gz
+RUN mv gobgp /usr/local/bin/gpbgp
+
 ENV INITSYSTEM="SYSTEMD"
 CMD ["/usr/bin/cilium"]
 

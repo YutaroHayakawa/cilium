@@ -74,7 +74,30 @@ type ServerWithConfig struct {
 func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (*ServerWithConfig, error) {
 	logger := NewServerLogger(log.Logger, startReq.Global.Asn)
 
-	s := server.NewBgpServer(server.LoggerOption(logger))
+	// Took from GoBGPd's default value
+	// https://github.com/osrg/gobgp/blob/44065abbca9216ee68d6747287db64b5fdc63670/cmd/gobgpd/main.go#L142
+	maxSize := 256 << 20
+	grpcOpts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(maxSize),
+		grpc.MaxSendMsgSize(maxSize),
+	}
+
+	// It is possible that we are running multiple GoBGP server. Devide those sockets with ASN.
+	sockPath := fmt.Sprintf("unix://%s/gobgp.%v.sock", option.Config.RunDir, startReq.Global.Asn)
+
+	// Delete previously created socket if exists
+	if err := os.RemoveAll(sockPath); err != nil {
+		return nil, err
+	}
+
+	// Open gRPC interface for better operational state visibility. Use the UNIX domain socket
+	// to avoid access from the remote.
+	s := server.NewBgpServer(
+		server.GrpcListenAddress(sockPath),
+		server.GrpcOption(grpcOpts),
+		server.LoggerOption(logger),
+	)
+
 	go s.Serve()
 
 	if err := s.StartBgp(ctx, startReq); err != nil {
