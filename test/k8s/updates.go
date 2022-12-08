@@ -82,19 +82,19 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 
 		// Download the stable helm chart from GitHub
-		versionPath := filepath.Join(kubectl.BasePath(), "../old-charts", helpers.CiliumStableVersion)
-		stableChartPath = filepath.Join(versionPath, fmt.Sprintf("cilium-%s/install/kubernetes/cilium", helpers.CiliumStableHelmChartVersion))
+		versionPath := filepath.Join(kubectl.BasePath(), "../old-charts", "231b4ed653c06722c3ac347346c6e1673973267c")
+		stableChartPath = filepath.Join(versionPath, fmt.Sprintf("cilium-%s/install/kubernetes/cilium", "231b4ed653c06722c3ac347346c6e1673973267c"))
 
 		cmd := kubectl.Exec(fmt.Sprintf("mkdir -p %s && "+
 			"cd %s && "+
 			"rm -rf * && "+
-			"wget https://github.com/cilium/cilium/archive/refs/heads/%s.zip &&"+
+			"wget https://github.com/cilium/cilium/archive/%s.zip &&"+
 			"unzip %s.zip",
 			versionPath,
 			versionPath,
-			helpers.CiliumStableVersion,
-			helpers.CiliumStableVersion))
-		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to download helm chart %s from GitHub", helpers.CiliumStableVersion)
+			"231b4ed653c06722c3ac347346c6e1673973267c",
+			"231b4ed653c06722c3ac347346c6e1673973267c"))
+		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to download helm chart %s from GitHub", "231b4ed653c06722c3ac347346c6e1673973267c")
 	})
 
 	AfterAll(func() {
@@ -123,7 +123,7 @@ var _ = Describe("K8sUpdates", func() {
 			InstallAndValidateCiliumUpgrades(
 				kubectl,
 				helpers.CiliumStableHelmChartVersion,
-				helpers.CiliumStableVersion,
+				"231b4ed653c06722c3ac347346c6e1673973267c",
 				helpers.CiliumLatestHelmChartVersion,
 				helpers.GetLatestImageVersion(),
 			)
@@ -150,14 +150,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		timeout = 5 * time.Minute
 	)
 
-	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
-	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
-	if !canRun {
-		Skip(fmt.Sprintf(
-			"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
-			oldImageVersion, helpers.GetCurrentK8SEnv()))
-		return func() {}, func() {}
-	}
+	// canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
+	// ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
+	// if !canRun {
+	// 	Skip(fmt.Sprintf(
+	// 		"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
+	// 		oldImageVersion, helpers.GetCurrentK8SEnv()))
+	// 	return func() {}, func() {}
+	// }
 
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"
