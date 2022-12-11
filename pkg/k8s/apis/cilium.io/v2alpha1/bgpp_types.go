@@ -72,6 +72,9 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=cidr
 	PeerAddress string `json:"peerAddress"`
+	// PodSelector selects the Pod to make BGP peers
+	// locally.
+	PodSelector *slimv1.LabelSelector `json:"podSelector"`
 	// PeerASN is the ASN of the peer BGP router.
 	// Supports extended 32bit ASNs
 	//
