@@ -9,11 +9,15 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/cilium/pkg/k8s/client"
+	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"google.golang.org/grpc"
 	apb "google.golang.org/protobuf/types/known/anypb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -127,65 +131,106 @@ func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (
 	}, nil
 }
 
+func (sc *ServerWithConfig) getNeighborIPs(n *v2alpha1api.CiliumBGPNeighbor, clientset client.Clientset) ([]string, error) {
+	ips := []string{}
+	if n.PeerAddress != "" {
+		if ip, _, err := net.ParseCIDR(n.PeerAddress); err != nil {
+			// unlikely, we validate this on CR write to k8s api.
+			return nil, fmt.Errorf("failed to parse PeerAddress: %w", err)
+		} else {
+			ips = append(ips, ip.String())
+		}
+	}
+	if n.PodSelector != nil {
+		fmt.Printf("=== Found selector %s\n", n.PodSelector.String())
+
+		lsStr := slimmetav1.FormatLabelSelector(n.PodSelector)
+
+		localPods, err := clientset.CoreV1().Pods("").List(
+			context.TODO(),
+			metav1.ListOptions{
+				LabelSelector: lsStr,
+				FieldSelector: "spec.nodeName=" + nodetypes.GetName(),
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to List Pods")
+		}
+
+		for _, pod := range localPods.Items {
+			for _, ip := range pod.Status.PodIPs {
+				ips = append(ips, ip.IP)
+			}
+		}
+	}
+	fmt.Printf("=== IPs %s\n", ips)
+	return ips, nil
+}
+
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
-func (sc *ServerWithConfig) AddNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor) error {
+func (sc *ServerWithConfig) AddNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor, clientset client.Clientset) error {
 	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
 	var err error
-	if ip, _, err = net.ParseCIDR(n.PeerAddress); err != nil {
-		// unlikely, we validate this on CR write to k8s api.
-		return fmt.Errorf("failed to parse PeerAddress: %w", err)
-	}
-	peerReq := &gobgp.AddPeerRequest{
-		Peer: &gobgp.Peer{
-			Conf: &gobgp.PeerConf{
-				NeighborAddress: ip.String(),
-				PeerAsn:         uint32(n.PeerASN),
-			},
-			// tells the peer we are capable of unicast IPv4 and IPv6
-			// advertisements.
-			AfiSafis: []*gobgp.AfiSafi{
-				{
-					Config: &gobgp.AfiSafiConfig{
-						Family: GoBGPIPv4Family,
-					},
-				},
-				{
-					Config: &gobgp.AfiSafiConfig{
-						Family: GoBGPIPv6Family,
-					},
-				},
-			},
 
-			EbgpMultihop: &gobgp.EbgpMultihop{
-				Enabled:     true,
-				MultihopTtl: 255,
+	ips, err := sc.getNeighborIPs(n, clientset)
+	if err != nil {
+		return fmt.Errorf("failed to get neighbor IPs: %w", err)
+	}
+
+	for _, ip := range ips {
+		peerReq := &gobgp.AddPeerRequest{
+			Peer: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: ip,
+					PeerAsn:         uint32(n.PeerASN),
+				},
+				// tells the peer we are capable of unicast IPv4 and IPv6
+				// advertisements.
+				AfiSafis: []*gobgp.AfiSafi{
+					{
+						Config: &gobgp.AfiSafiConfig{
+							Family: GoBGPIPv4Family,
+						},
+					},
+					{
+						Config: &gobgp.AfiSafiConfig{
+							Family: GoBGPIPv6Family,
+						},
+					},
+				},
+
+				EbgpMultihop: &gobgp.EbgpMultihop{
+					Enabled:     true,
+					MultihopTtl: 255,
+				},
 			},
-		},
+		}
+		if err = sc.Server.AddPeer(ctx, peerReq); err != nil {
+			return fmt.Errorf("failed while adding peer %v %v: %w", n.PeerAddress, n.PeerASN, err)
+		}
 	}
-	if err = sc.Server.AddPeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while adding peer %v %v: %w", n.PeerAddress, n.PeerASN, err)
-	}
+
 	return nil
 }
 
 // RemoveNeighbor will remove the CiliumBGPNeighbor from the gobgp.BgpServer,
 // disconnecting the BGP peering connection.
-func (sc *ServerWithConfig) RemoveNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor) error {
-	// cilium neighbor uses CIDR string, gobgp neighbor uses IP string, convert.
-	var ip net.IP
-	var err error
-	if ip, _, err = net.ParseCIDR(n.PeerAddress); err != nil {
-		// unlikely, we validate this on CR write to k8s api.
-		return fmt.Errorf("failed to parse PeerAddress: %w", err)
+func (sc *ServerWithConfig) RemoveNeighbor(ctx context.Context, n *v2alpha1api.CiliumBGPNeighbor, clientset client.Clientset) error {
+	ips, err := sc.getNeighborIPs(n, clientset)
+	if err != nil {
+		return fmt.Errorf("failed to get neighbor IPs: %w", err)
 	}
-	peerReq := &gobgp.DeletePeerRequest{
-		Address: ip.String(),
+
+	for _, ip := range ips {
+		peerReq := &gobgp.DeletePeerRequest{
+			Address: ip,
+		}
+		if err := sc.Server.DeletePeer(ctx, peerReq); err != nil {
+			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
+		}
 	}
-	if err := sc.Server.DeletePeer(ctx, peerReq); err != nil {
-		return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
-	}
+
 	return nil
 }
 

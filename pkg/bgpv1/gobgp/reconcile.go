@@ -177,7 +177,7 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 
 // neighborReconciler is a ConfigReconcilerFunc which reconciles the peers of
 // the provided BGP server with the provided CiliumBGPVirtualRouter.
-func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, _ *agent.ControlPlaneState) error {
+func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, state *agent.ControlPlaneState) error {
 	if newc == nil {
 		return fmt.Errorf("attempted neighbor reconciliation with nil CiliumBGPPeeringPolicy")
 	}
@@ -214,7 +214,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// populate set from universe a, new neighbors
 	for i, n := range newNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = fmt.Sprintf("%s%d%s", n.PeerAddress, n.PeerASN, n.PodSelector)
 			h   *member
 			ok  bool
 		)
@@ -231,7 +231,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// populate set from universe b, current neighbors
 	for i, n := range curNeigh {
 		var (
-			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
+			key = fmt.Sprintf("%s%d%s", n.PeerAddress, n.PeerASN, n.PodSelector)
 			h   *member
 			ok  bool
 		)
@@ -265,7 +265,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// create new neighbors
 	for _, n := range toCreate {
 		l.Infof("Adding peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.AddNeighbor(ctx, n); err != nil {
+		if err := sc.AddNeighbor(ctx, n, state.Clientset); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}
@@ -273,7 +273,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	// remove neighbors
 	for _, n := range toRemove {
 		l.Infof("Removing peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
-		if err := sc.RemoveNeighbor(ctx, n); err != nil {
+		if err := sc.RemoveNeighbor(ctx, n, state.Clientset); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
 	}

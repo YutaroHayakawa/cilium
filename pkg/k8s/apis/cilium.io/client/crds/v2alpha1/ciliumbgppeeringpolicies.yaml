@@ -193,8 +193,6 @@ spec:
                             type: object
                         required:
                         - peerASN
-                        - peerAddress
-                        - podSelector
                         type: object
                       minItems: 1
                       type: array

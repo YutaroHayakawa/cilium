@@ -229,7 +229,7 @@ func TestNeighborReconciler(t *testing.T) {
 				testSC.AddNeighbor(context.Background(), &v2alpha1api.CiliumBGPNeighbor{
 					PeerAddress: n,
 					PeerASN:     64124,
-				})
+				}, nil)
 			}
 			testSC.Config = oldc
 

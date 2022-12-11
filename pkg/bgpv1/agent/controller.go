@@ -97,6 +97,8 @@ type ControlPlaneState struct {
 	IPv4 net.IP
 	// The current IPv6 address of the agent, reachable externally.
 	IPv6 net.IP
+	// Clientset
+	Clientset client.Clientset
 }
 
 // Controller is the agent side BGP Control Plane controller.
@@ -123,6 +125,8 @@ type Controller struct {
 	BGPMgr BGPRouterManager
 
 	workerpool *workerpool.WorkerPool
+
+	Clientset client.Clientset
 }
 
 // ControllerOpt is a signature for defining configurable options for a
@@ -243,6 +247,8 @@ func NewController(params ControllerParams) (*Controller, error) {
 		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
 		DeleteFunc: sig.Event,
 	})
+
+	c.Clientset = params.Clientset
 
 	params.Lifecycle.Append(&c)
 
@@ -447,6 +453,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		Annotations: annoMap,
 		IPv4:        nodeaddr.GetIPv4(),
 		IPv6:        nodeaddr.GetIPv6(),
+		Clientset:   c.Clientset,
 	}
 
 	// call bgp sub-systems required to apply this policy's BGP topology.
