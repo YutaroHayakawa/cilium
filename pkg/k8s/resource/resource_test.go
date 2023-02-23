@@ -20,7 +20,6 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -303,8 +302,7 @@ func TestResource_WithTransform(t *testing.T) {
 		},
 	}
 
-	var strip cache.TransformFunc = func(obj any) (any, error) {
-		node := obj.(*corev1.Node)
+	strip := func(obj *corev1.Node) (*StrippedNode, error) {
 		return &StrippedNode{TypeMeta: node.TypeMeta, ObjectMeta: node.ObjectMeta}, nil
 	}
 

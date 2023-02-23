@@ -101,6 +101,10 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 		needed: make(chan struct{}, 1),
 		lw:     lw,
 	}
+	r.opts.sourceObj = func() k8sRuntime.Object {
+		var obj T
+		return obj
+	}
 	for _, o := range opts {
 		o(&r.opts)
 	}
@@ -111,15 +115,36 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 }
 
 type options struct {
-	transform cache.TransformFunc
+	transform cache.TransformFunc      // if non-nil, the object is transformed with this function before storing
+	sourceObj func() k8sRuntime.Object // prototype for the object before it is transformed
 }
 
 type ResourceOption func(o *options)
 
 // WithTransform sets the function to transform the object before storing it.
-// The returned object must implement k8sRuntime.Object.
-func WithTransform(transform cache.TransformFunc) ResourceOption {
+func WithTransform[From, To k8sRuntime.Object](transform func(From) (To, error)) ResourceOption {
+	return WithLazyTransform(
+		func() k8sRuntime.Object {
+			var obj From
+			return obj
+		},
+		func(fromRaw any) (any, error) {
+			if from, ok := fromRaw.(From); ok {
+				to, err := transform(from)
+				return to, err
+			} else {
+				var obj From
+				return nil, fmt.Errorf("resource.WithTransform: expected %T, got %T", obj, fromRaw)
+			}
+		})
+}
+
+// WithLazyTransform sets the function to transform the object before storing it.
+// Unlike "WithTransform", this defers the resolving of the source object type until the resource
+// is needed. Use this in situations where the source object depends on api-server capabilities.
+func WithLazyTransform(sourceObj func() k8sRuntime.Object, transform cache.TransformFunc) ResourceOption {
 	return func(o *options) {
+		o.sourceObj = sourceObj
 		o.transform = transform
 	}
 }
@@ -196,6 +221,10 @@ func (r *resource[T]) markNeeded() {
 	}
 }
 
+type deepEqual[T any] interface {
+	DeepEqual(other T) bool
+}
+
 func (r *resource[T]) startWhenNeeded() {
 	defer r.wg.Done()
 
@@ -212,15 +241,23 @@ func (r *resource[T]) startWhenNeeded() {
 	}
 
 	// Construct the informer and run it.
-	var objType T
 	handlerFuncs :=
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj)) },
-			UpdateFunc: func(old any, new any) { r.pushUpdate(NewKey(new)) },
+			AddFunc: func(obj any) { r.pushUpdate(NewKey(obj)) },
+			UpdateFunc: func(old any, new any) {
+				// Ignore unchanged objects. We may end up here as slim objects
+				// don't parse every field.
+				if oldEq, ok := old.(deepEqual[T]); ok {
+					if oldEq.DeepEqual(new.(T)) {
+						return
+					}
+				}
+				r.pushUpdate(NewKey(new))
+			},
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
-	store, informer := cache.NewTransformingInformer(r.lw, objType, 0, handlerFuncs, r.opts.transform)
+	store, informer := cache.NewTransformingInformer(r.lw, r.opts.sourceObj(), 0, handlerFuncs, r.opts.transform)
 	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)
