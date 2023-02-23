@@ -118,7 +118,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
-	k8sEndpoints := &slim_corev1.Endpoints{
+	endpoints := &slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
@@ -138,17 +138,17 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 	}
 
 	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+		svcCache.UpdateEndpoints(endpoints, swgEps)
 	}
 	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
+		svcCache.DeleteEndpoints(endpoints, swgEps)
 	}
 
 	testServiceCache(c, updateEndpoints, deleteEndpoints)
 }
 
 func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
-	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
+	endpoints := &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-afbh9",
@@ -174,10 +174,10 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 	}
 
 	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swgEps)
+		svcCache.UpdateEndpointSlicesV1(endpoints, swgEps)
 	}
 	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
+		svcCache.DeleteEndpointSlices(endpoints, swgEps)
 	}
 
 	testServiceCache(c, updateEndpoints, deleteEndpoints)
@@ -378,7 +378,7 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	swgSvcs := lock.NewStoppableWaitGroup()
 	svcID := svcCache.UpdateService(k8sSvc, swgSvcs)
 
-	k8sEndpoints := &slim_corev1.Endpoints{
+	endpoints := &slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
@@ -398,7 +398,7 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	}
 
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+	svcCache.UpdateEndpoints(endpoints, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported
@@ -780,7 +780,7 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 
 	svcID := ServiceID{Name: "foo", Namespace: "bar"}
 
-	svcCache.UpdateEndpoints(&slim_corev1.Endpoints{
+	endpoints := &slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Namespace: svcID.Namespace,
 			Name:      svcID.Name,
@@ -797,7 +797,9 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 				},
 			},
 		},
-	}, swgEps)
+	}
+
+	svcCache.UpdateEndpoints(endpoints, swgEps)
 
 	svcCache.MergeClusterServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   option.Config.ClusterName,
@@ -1391,6 +1393,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			},
 		},
 	}
+
 	k8sNode := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "node1",
