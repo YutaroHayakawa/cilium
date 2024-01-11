@@ -186,7 +186,7 @@ jobs:
             fi
 
       - name: Run tests
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@06c67d1fbc582ffd6f5b76211d296ac494c27af9
         with:
           test-name: datapath-conformance
           image-version: ${{ matrix.kernel }}
@@ -218,7 +218,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@06c67d1fbc582ffd6f5b76211d296ac494c27af9
         with:
           provision: 'false'
           cmd: |
