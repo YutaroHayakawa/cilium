@@ -130,7 +130,7 @@ There are several advanced networking features currently in beta, several of
 these are already in production use with a set of adopters. We expect the
 following features to graduate to stable:
 
-* :ref:`BGP<bgp>`
+* :ref:`BGP<bgp-control-plane>`
 * :ref:`Local Redirect Policy<local-redirect-policy>`
 * :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
