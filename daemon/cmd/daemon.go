@@ -487,7 +487,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.policy,
 		d.svc,
 		d.lrpManager,
-		params.MetalLBBgpSpeaker,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,

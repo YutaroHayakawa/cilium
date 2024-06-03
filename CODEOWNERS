@@ -400,7 +400,6 @@ Makefile* @cilium/build
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
 /operator/pkg/secretsync @cilium/sig-servicemesh
-/operator/watchers/bgp.go @cilium/sig-bgp
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
@@ -411,7 +410,6 @@ Makefile* @cilium/build
 /pkg/azure/ @cilium/azure
 /pkg/backoff/ @cilium/sig-agent
 /pkg/datapath/linux/bandwidth/ @cilium/sig-datapath
-/pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
@@ -578,8 +576,6 @@ Makefile* @cilium/build
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
-# BGP tests
-/test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure

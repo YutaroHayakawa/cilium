@@ -31,7 +31,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
-	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -1030,15 +1029,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
 	option.BindEnv(vp, option.EnableCustomCallsName)
 
-	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
-	option.BindEnv(vp, option.BGPAnnounceLBIP)
-
-	flags.Bool(option.BGPAnnouncePodCIDR, false, "Announces the node's pod CIDR via BGP")
-	option.BindEnv(vp, option.BGPAnnouncePodCIDR)
-
-	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
-	option.BindEnv(vp, option.BGPConfigPath)
-
 	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
 	option.BindEnv(vp, option.ExternalClusterIPName)
 
@@ -1677,7 +1667,6 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Prefilter           datapath.PreFilter
 	CompilationLock     datapath.CompilationLock
-	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

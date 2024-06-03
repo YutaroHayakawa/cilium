@@ -110,13 +110,6 @@ type redirectPolicyManager interface {
 	OnAddPod(pod *slim_corev1.Pod)
 }
 
-type bgpSpeakerManager interface {
-	OnUpdateService(svc *slim_corev1.Service) error
-	OnDeleteService(svc *slim_corev1.Service) error
-
-	OnUpdateEndpoints(eps *k8s.Endpoints) error
-}
-
 type cgroupManager interface {
 	OnAddPod(pod *slim_corev1.Pod)
 	OnUpdatePod(oldPod, newPod *slim_corev1.Pod)
@@ -158,7 +151,6 @@ type K8sWatcher struct {
 	policyRepository      policyRepository
 	svcManager            svcManager
 	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
 	ipcache               ipcacheManager
 	cgroupManager         cgroupManager
 
@@ -197,7 +189,6 @@ func NewK8sWatcher(
 	policyRepository policyRepository,
 	svcManager svcManager,
 	redirectPolicyManager redirectPolicyManager,
-	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -224,7 +215,6 @@ func NewK8sWatcher(
 		stop:                  make(chan struct{}),
 		podStoreSet:           make(chan struct{}),
 		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
 		cgroupManager:         cgroupManager,
 		bandwidthManager:      bandwidthManager,
 		cfg:                   cfg,

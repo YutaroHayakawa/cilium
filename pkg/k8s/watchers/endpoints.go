@@ -63,7 +63,6 @@ func (k *K8sWatcher) endpointsInit() {
 
 func (k *K8sWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
 	k.K8sSvcCache.UpdateEndpoints(eps, swgEps)
-	k.bgpSpeakerManager.OnUpdateEndpoints(eps)
 	k.addKubeAPIServerServiceEndpoints(eps)
 }
 

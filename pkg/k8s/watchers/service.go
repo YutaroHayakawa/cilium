@@ -82,7 +82,6 @@ func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 			k.redirectPolicyManager.OnAddService(svcID)
 		}
 	}
-	k.bgpSpeakerManager.OnUpdateService(svc)
 }
 
 func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
@@ -93,7 +92,6 @@ func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 			k.redirectPolicyManager.OnDeleteService(svcID)
 		}
 	}
-	k.bgpSpeakerManager.OnDeleteService(svc)
 }
 
 func (k *K8sWatcher) k8sServiceHandler() {
