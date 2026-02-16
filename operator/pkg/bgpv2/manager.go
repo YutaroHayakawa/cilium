@@ -1,6 +1,59 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+// Package bgpv2 implements the BGP Control Plane v2 operator for Cilium.
+//
+// This operator reconciles high-level BGP policies into lower-level node-specific
+// configurations that are consumed by BGP agents running on each node.
+//
+// # Dual API Support
+//
+// The operator supports two API versions for backward compatibility:
+//   - Legacy: CiliumBGPPeeringPolicy (v2alpha1) - Original BGP configuration API
+//   - New: CiliumBGPClusterConfig (v2alpha1) - Improved cluster-wide BGP configuration
+//
+// Both APIs generate the same lower-level resources (CiliumBGPNodeConfig,
+// CiliumBGPAdvertisement, CiliumBGPPeerConfig). When both APIs are present in the cluster,
+// the NEW CiliumBGPClusterConfig takes precedence. This enables zero-downtime migration:
+//   1. Deploy new CiliumBGPClusterConfig alongside existing CiliumBGPPeeringPolicy
+//   2. Validate that new configs work correctly (new API takes precedence)
+//   3. Delete legacy CiliumBGPPeeringPolicy resources
+//
+// # Architecture
+//
+// The reconciliation flow:
+//  1. High-level policies (CiliumBGPPeeringPolicy or CiliumBGPClusterConfig) are watched
+//  2. Changes trigger the main reconciliation loop in BGPResourceManager
+//  3. Reconciliation logic (bgpp.go or cluster.go) generates lower-level resources
+//  4. Generated resources are created/updated via Kubernetes API
+//  5. BGP agents on nodes watch and apply the generated configurations
+//
+// # Resource Generation
+//
+// From CiliumBGPPeeringPolicy:
+//   - Each policy + node + virtual router + peer → unique CiliumBGPPeerConfig
+//   - Each policy + node + virtual router → unique CiliumBGPAdvertisement
+//   - Each policy + node → unique CiliumBGPNodeConfig
+//
+// From CiliumBGPClusterConfig:
+//   - Cluster config + node-specific overrides → CiliumBGPNodeConfig per node
+//
+// # Owner References and Garbage Collection
+//
+// All generated resources include OwnerReferences pointing to their source policy.
+// This enables automatic cleanup via Kubernetes garbage collection when policies
+// are deleted. The operator also performs additional orphan cleanup to handle
+// edge cases where Kubernetes GC might not immediately remove resources.
+//
+// # Abbreviations Used in Code
+//
+//   - bgpp: CiliumBGPPeeringPolicy
+//   - bgpnc: CiliumBGPNodeConfig
+//   - bgpa: CiliumBGPAdvertisement
+//   - bgppc: CiliumBGPPeerConfig
+//   - cc: CiliumBGPClusterConfig
+//
+// For detailed issues and improvement opportunities, see pkg/bgp/ISSUES.md.
 package bgpv2
 
 import (
@@ -27,7 +80,16 @@ import (
 
 var (
 	// retry options used in reconcileWithRetry method.
-	// steps will repeat for ~8.5 minutes.
+	//
+	// With exponential backoff (factor=2) and 10 steps:
+	// 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 512s
+	// Total retry window: ~17 minutes (sum of all delays)
+	// Maximum single delay: ~8.5 minutes (512s)
+	//
+	// These values provide a reasonable balance between:
+	// - Quick recovery from transient errors
+	// - Not overwhelming the API server with retries
+	// - Eventual reconciliation of persistent issues
 	bo = wait.Backoff{
 		Duration: 1 * time.Second,
 		Factor:   2,
@@ -37,6 +99,9 @@ var (
 	}
 
 	// maxErrorLen is the maximum length of error message to be logged.
+	// Truncating to 140 characters keeps logs readable while preserving
+	// enough context to identify the error type. Full errors are still
+	// returned to callers for proper error handling.
 	maxErrorLen = 140
 )
 
@@ -315,9 +380,17 @@ func (b *BGPResourceManager) reconcile(ctx context.Context) error {
 
 	switch {
 	case ppEnabled && ccEnabled:
-		// If both legacy CiliumBGPPeeringPolicy and new CiliumBGPClusterConfig is enabled,
-		// we only reconcile new CiliumBGPClusterConfig.
-		// This is done for migration from legacy to new BGP resources.
+		// Migration scenario: Both APIs are present in the cluster.
+		//
+		// When both legacy CiliumBGPPeeringPolicy and new CiliumBGPClusterConfig exist,
+		// we only reconcile CiliumBGPClusterConfig to avoid conflicts and provide a clean
+		// migration path. This means:
+		//
+		// 1. Operators can deploy new CiliumBGPClusterConfig alongside existing policies
+		// 2. The new API takes precedence once both are present
+		// 3. Legacy policies can be safely deleted after validation
+		//
+		// This design allows zero-downtime migration from legacy to new API.
 		err = b.reconcileBGPClusterConfigs(ctx)
 	case ppEnabled:
 		err = b.reconcileBGPPeeringPolicies(ctx)
@@ -407,6 +480,13 @@ func (b *BGPResourceManager) deleteOrphanBGPNC(ctx context.Context) error {
 
 // deleteOrphanBGPA deletes orphan CiliumBGPAdvertisement objects. If owner is of kind BGP peering policy, but policy is not found,
 // we delete the CiliumBGPAdvertisement object.
+//
+// Note: This function only handles BGPPeeringPolicy owners, unlike deleteOrphanBGPNC which handles
+// both BGPPeeringPolicy and BGPClusterConfig. This is intentional because:
+// - CiliumBGPAdvertisement is only generated by legacy BGPPeeringPolicy reconciliation (bgpp.go)
+// - CiliumBGPClusterConfig does not generate CiliumBGPAdvertisement resources
+//
+// If this changes in the future, this function should be updated to check both owner kinds.
 func (b *BGPResourceManager) deleteOrphanBGPA(ctx context.Context) error {
 	var allErr error
 	for _, advert := range b.advertStore.List() {
@@ -444,6 +524,13 @@ func (b *BGPResourceManager) deleteOrphanBGPA(ctx context.Context) error {
 
 // deleteOrphanBGPPC deletes orphan CiliumBGPPeerConfig objects. If owner is of kind BGP peering policy, but policy is not found,
 // we delete the CiliumBGPPeerConfig object.
+//
+// Note: This function only handles BGPPeeringPolicy owners, unlike deleteOrphanBGPNC which handles
+// both BGPPeeringPolicy and BGPClusterConfig. This is intentional because:
+// - CiliumBGPPeerConfig is only generated by legacy BGPPeeringPolicy reconciliation (bgpp.go)
+// - CiliumBGPClusterConfig does not generate CiliumBGPPeerConfig resources
+//
+// If this changes in the future, this function should be updated to check both owner kinds.
 func (b *BGPResourceManager) deleteOrphanBGPPC(ctx context.Context) error {
 	var allErr error
 	for _, pc := range b.peerConfigStore.List() {
@@ -480,7 +567,15 @@ func (b *BGPResourceManager) deleteOrphanBGPPC(ctx context.Context) error {
 }
 
 // getOwnerKindAndName returns owner kind and name for a given object.
-// BGP resources created by operator will have only 1 owner.
+//
+// BGP resources created by this operator will have exactly 1 owner reference.
+// If the object has 0 or multiple owners, this function returns empty strings
+// ("", "") to indicate the owner could not be determined.
+//
+// Note: Returning empty strings rather than an error allows callers to handle
+// unexpected owner counts as "no owner found" and skip cleanup for those resources.
+// This is safe because Kubernetes garbage collection will eventually clean up
+// resources if their owners are truly deleted.
 func getOwnerKindAndName[T meta_v1.Object](obj T) (string, string) {
 	owners := obj.GetOwnerReferences()
 

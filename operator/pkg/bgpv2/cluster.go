@@ -196,7 +196,18 @@ func (b *BGPResourceManager) getMatchingNodes(nodeSelector *slim_meta_v1.LabelSe
 }
 
 // deleteStaleNodeConfigs deletes node configs that are not in the expected list for given cluster.
-// TODO there might be a race where stale node configs are not detected and deleted. Check issue #30320 for more details.
+//
+// TODO: Race condition exists where stale node configs may not be detected and deleted.
+// If a node is deleted from Kubernetes while the operator is reconciling, the node might:
+// 1. Still appear in ciliumNodeStore during reconciliation
+// 2. Be marked as "expected" and not deleted
+// 3. Remain as an orphaned config after reconciliation completes
+//
+// This can leave BGP configurations for deleted nodes in the cluster until the next
+// reconciliation cycle or until manual cleanup. See issue #30320 for details.
+//
+// Workaround: The orphan cleanup logic in reconcileBGPNC() provides eventual consistency
+// by removing configs whose owner references no longer exist, but timing gaps remain.
 func (b *BGPResourceManager) deleteStaleNodeConfigs(ctx context.Context, expectedNodes sets.Set[string], clusterRef string) error {
 	var err error
 	for _, existingNode := range b.nodeConfigStore.List() {
