@@ -142,7 +142,10 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		if b.bgpRouterIDIPPoolEnabled {
 			for _, instance := range config.Spec.BGPInstances {
 				key := getRouterIDKey(node.Name, instance.Name)
-				// Check if already allocated (with proper locking to avoid TOCTOU within critical section)
+				// Note: There is a benign TOCTOU race between the check and allocate.
+				// If two goroutines see "not exists" and both try to allocate, the second
+				// will get ErrInUse which we ignore. This is acceptable since allocation
+				// is idempotent and avoids holding the lock during the allocation call.
 				b.bgpRouterIDMapMu.RLock()
 				_, exists := b.bgpRouterIDMap[key]
 				b.bgpRouterIDMapMu.RUnlock()
@@ -373,7 +376,7 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 			if routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]; exists {
 				// Copy the value while holding the lock to avoid TOCTOU
 				currentRouterID = ptr.To(*routerID)
-				nodeBGPInstance.RouterID = ptr.To(routerID.String())
+				nodeBGPInstance.RouterID = ptr.To(currentRouterID.String())
 			}
 			b.bgpRouterIDMapMu.RUnlock()
 		}
