@@ -142,15 +142,17 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		if b.bgpRouterIDIPPoolEnabled {
 			for _, instance := range config.Spec.BGPInstances {
 				key := getRouterIDKey(node.Name, instance.Name)
+				// Check if already allocated (with proper locking to avoid TOCTOU within critical section)
 				b.bgpRouterIDMapMu.RLock()
 				_, exists := b.bgpRouterIDMap[key]
 				b.bgpRouterIDMapMu.RUnlock()
-				if exists {
-					continue
-				}
-				err := b.allocateRouterID(key, nil)
-				if err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to allocate router ID for node and instance %s/%s: %w", node.Name, instance.Name, err))
+				
+				if !exists {
+					// Allocate if not exists - allocateRouterID handles its own locking
+					err := b.allocateRouterID(key, nil)
+					if err != nil && !errors.Is(err, ipalloc.ErrInUse) {
+						errs = errors.Join(errs, fmt.Errorf("failed to allocate router ID for node and instance %s/%s: %w", node.Name, instance.Name, err))
+					}
 				}
 			}
 		}
@@ -264,6 +266,7 @@ func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNode
 					routerID, exists := b.bgpRouterIDMap[key]
 					b.bgpRouterIDMapMu.RUnlock()
 					if exists {
+						// freeRouterID handles its own locking internally
 						if freeErr := b.freeRouterID(key, routerID); freeErr != nil {
 							errs = errors.Join(errs, fmt.Errorf("failed to free router ID for node and instance %s/%s: %w", nodeConfig.Name, instance.Name, freeErr))
 						}
@@ -367,12 +370,12 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 		if b.bgpRouterIDIPPoolEnabled {
 			currentRouterIDKey = getRouterIDKey(nodeName, clusterBGPInstance.Name)
 			b.bgpRouterIDMapMu.RLock()
-			routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]
-			b.bgpRouterIDMapMu.RUnlock()
-			if exists {
-				currentRouterID = routerID
+			if routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]; exists {
+				// Copy the value while holding the lock to avoid TOCTOU
+				currentRouterID = ptr.To(*routerID)
 				nodeBGPInstance.RouterID = ptr.To(routerID.String())
 			}
+			b.bgpRouterIDMapMu.RUnlock()
 		}
 
 		// find BGPResourceManager global override for this instance

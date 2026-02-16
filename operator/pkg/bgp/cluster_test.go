@@ -1681,8 +1681,6 @@ func isSameOwner(expectedOwners, runningOwners []meta_v1.OwnerReference) bool {
 }
 
 // TestRouterIDAllocationConcurrency tests that concurrent router ID allocations
-
-// TestRouterIDAllocationConcurrency tests that concurrent router ID allocations
 // are thread-safe and don't cause data races or duplicate allocations.
 func TestRouterIDAllocationConcurrency(t *testing.T) {
 req := require.New(t)
