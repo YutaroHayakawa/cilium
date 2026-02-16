@@ -266,7 +266,7 @@ See [pkg/bgp/ISSUES.md](../../pkg/bgp/ISSUES.md) for comprehensive list of known
 4. **Cutover**: Delete legacy policies (new configs take effect immediately)
 5. **Cleanup**: Remove legacy CRD definitions after full migration
 
-**Important**: During migration, legacy policies take precedence if both APIs match the same node.
+**Important**: During migration, the NEW `CiliumBGPClusterConfig` takes precedence if both APIs are present in the cluster. This allows safe validation of new configs before removing legacy policies.
 
 ## References
 

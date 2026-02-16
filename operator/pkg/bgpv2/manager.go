@@ -81,15 +81,16 @@ import (
 var (
 	// retry options used in reconcileWithRetry method.
 	//
-	// With exponential backoff (factor=2) and 10 steps:
+	// With exponential backoff (factor=2) and 10 steps, the delays are:
 	// 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 512s
-	// Total retry window: ~17 minutes (sum of all delays)
-	// Maximum single delay: ~8.5 minutes (512s)
+	// 
+	// - Total retry window: ~17 minutes (sum of all delays = 1023 seconds)
+	// - Maximum single delay: ~8.5 minutes (512 seconds on the final step)
 	//
 	// These values provide a reasonable balance between:
-	// - Quick recovery from transient errors
-	// - Not overwhelming the API server with retries
-	// - Eventual reconciliation of persistent issues
+	// - Quick recovery from transient errors (early retries are fast)
+	// - Not overwhelming the API server with retries (exponential backoff)
+	// - Eventual reconciliation of persistent issues (long total window)
 	bo = wait.Backoff{
 		Duration: 1 * time.Second,
 		Factor:   2,
