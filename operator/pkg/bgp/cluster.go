@@ -142,7 +142,10 @@ func (b *BGPResourceManager) upsertNodeConfigs(ctx context.Context, config *v2.C
 		if b.bgpRouterIDIPPoolEnabled {
 			for _, instance := range config.Spec.BGPInstances {
 				key := getRouterIDKey(node.Name, instance.Name)
-				if _, exists := b.bgpRouterIDMap[key]; exists {
+				b.bgpRouterIDMapMu.RLock()
+				_, exists := b.bgpRouterIDMap[key]
+				b.bgpRouterIDMapMu.RUnlock()
+				if exists {
 					continue
 				}
 				err := b.allocateRouterID(key, nil)
@@ -257,7 +260,10 @@ func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNode
 			if b.bgpRouterIDIPPoolEnabled {
 				for _, instance := range nodeConfig.Spec.BGPInstances {
 					key := getRouterIDKey(nodeConfig.Name, instance.Name)
-					if routerID, exists := b.bgpRouterIDMap[key]; exists {
+					b.bgpRouterIDMapMu.RLock()
+					routerID, exists := b.bgpRouterIDMap[key]
+					b.bgpRouterIDMapMu.RUnlock()
+					if exists {
 						if freeErr := b.freeRouterID(key, routerID); freeErr != nil {
 							errs = errors.Join(errs, fmt.Errorf("failed to free router ID for node and instance %s/%s: %w", nodeConfig.Name, instance.Name, freeErr))
 						}
@@ -360,7 +366,10 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 		var currentRouterID *netip.Addr
 		if b.bgpRouterIDIPPoolEnabled {
 			currentRouterIDKey = getRouterIDKey(nodeName, clusterBGPInstance.Name)
-			if routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]; exists {
+			b.bgpRouterIDMapMu.RLock()
+			routerID, exists := b.bgpRouterIDMap[currentRouterIDKey]
+			b.bgpRouterIDMapMu.RUnlock()
+			if exists {
 				currentRouterID = routerID
 				nodeBGPInstance.RouterID = ptr.To(routerID.String())
 			}
@@ -420,7 +429,9 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 }
 
 func (b *BGPResourceManager) clearAllRouterIDs() error {
+	b.bgpRouterIDMapMu.Lock()
 	b.bgpRouterIDMap = make(map[string]*netip.Addr)
+	b.bgpRouterIDMapMu.Unlock()
 	if b.bgpRouterIDIPPool == nil {
 		return nil
 	}
@@ -444,7 +455,9 @@ func (b *BGPResourceManager) freeRouterID(key string, routerID *netip.Addr) erro
 		return fmt.Errorf("routerID cannot be nil when freeing a specific router ID")
 	}
 
+	b.bgpRouterIDMapMu.Lock()
 	delete(b.bgpRouterIDMap, key)
+	b.bgpRouterIDMapMu.Unlock()
 
 	if b.bgpRouterIDIPPool == nil {
 		return fmt.Errorf("bgp Router ID pool doesn't not exist")
@@ -479,7 +492,9 @@ func (b *BGPResourceManager) allocateRouterID(key string, routerID *netip.Addr) 
 	}
 
 	// Store the allocated router ID in the map
+	b.bgpRouterIDMapMu.Lock()
 	b.bgpRouterIDMap[key] = ptr.To(allocatedID)
+	b.bgpRouterIDMapMu.Unlock()
 	return nil
 }
 func (b *BGPResourceManager) restoreRouterIDs() error {
@@ -498,7 +513,9 @@ func (b *BGPResourceManager) restoreRouterIDs() error {
 				continue
 			}
 			key := getRouterIDKey(nodeConfig.Name, instance.Name)
+			b.bgpRouterIDMapMu.RLock()
 			_, exists := b.bgpRouterIDMap[key]
+			b.bgpRouterIDMapMu.RUnlock()
 			// If we can't find the router ID in the map, we need to restore it
 			if !exists {
 				// When restoring router ID, we must check if it is within the configured pool range for IP pool mode since

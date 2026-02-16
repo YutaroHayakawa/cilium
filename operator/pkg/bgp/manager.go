@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -81,6 +82,7 @@ type BGPResourceManager struct {
 	// bgp routerID allocation through the ip pool
 	bgpRouterIDIPPoolEnabled bool
 	bgpRouterIDIPPool        *ipalloc.HashAllocator[string]
+	bgpRouterIDMapMu         sync.RWMutex           // protects bgpRouterIDMap
 	bgpRouterIDMap           map[string]*netip.Addr
 }
 
