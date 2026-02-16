@@ -1681,8 +1681,6 @@ func isSameOwner(expectedOwners, runningOwners []meta_v1.OwnerReference) bool {
 }
 
 // TestRouterIDAllocationConcurrency tests that concurrent router ID allocations
-
-// TestRouterIDAllocationConcurrency tests that concurrent router ID allocations
 // are thread-safe and don't cause data races or duplicate allocations.
 func TestRouterIDAllocationConcurrency(t *testing.T) {
 req := require.New(t)
@@ -1691,11 +1689,11 @@ ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
 defer cancel()
 
 // Enable BGP router ID IP pool mode
-daemonCfg := &option.DaemonConfig{
-EnableBGPControlPlane:      true,
-BGPRouterIDAllocationMode:  option.BGPRouterIDAllocationModeIPPool,
-BGPRouterIDAllocationIPPool: "10.0.0.0/24",
-}
+daemonCfg := &option.DaemonConfig{}
+daemonCfg.Populate(hivetest.Lifecycle(t))
+daemonCfg.BGPControlPlane = option.BGPControlPlaneEnabled
+daemonCfg.BGPRouterIDAllocationMode = option.BGPRouterIDAllocationModeIPPool
+daemonCfg.BGPRouterIDAllocationIPPool = "10.0.0.0/24"
 
 f, watchersReady := newFixture(t, ctx, require.New(t), daemonCfg)
 
@@ -1712,7 +1710,7 @@ nodes := make([]*v2.CiliumNode, numNodes)
 for i := 0; i < numNodes; i++ {
 nodes[i] = &v2.CiliumNode{
 ObjectMeta: meta_v1.ObjectMeta{
-Name: string(uuid.NewUUID()),
+Name: ptr.To(string(uuid.NewUUID())),
 Labels: map[string]string{
 "bgp-enabled": "true",
 },
@@ -1724,7 +1722,7 @@ Labels: map[string]string{
 instances := make([]v2.CiliumBGPInstance, numInstances)
 for i := 0; i < numInstances; i++ {
 instances[i] = v2.CiliumBGPInstance{
-Name:     string(uuid.NewUUID()),
+Name:     ptr.To(string(uuid.NewUUID())),
 LocalASN: ptr.To[int64](65000 + int64(i)),
 }
 }
@@ -1745,7 +1743,7 @@ BGPInstances: instances,
 }
 
 // Insert cluster config first
-_, err := f.bgpcClient.Create(ctx, clusterConfig, meta_v1.CreateOptions{})
+_, err := f.bgpconfigClient.Create(ctx, clusterConfig, meta_v1.CreateOptions{})
 req.NoError(err)
 
 // Wait for initial reconciliation
@@ -1755,7 +1753,7 @@ time.Sleep(100 * time.Millisecond)
 errChan := make(chan error, numNodes)
 for _, node := range nodes {
 go func(n *v2.CiliumNode) {
-_, err := f.nodeClient.Create(ctx, n, meta_v1.CreateOptions{})
+_, err := f.ciliumNodeClient.Create(ctx, n, meta_v1.CreateOptions{})
 errChan <- err
 }(node)
 }
@@ -1767,7 +1765,7 @@ req.NoError(<-errChan)
 
 // Wait for reconciliation to complete
 req.EventuallyWithT(func(c *assert.CollectT) {
-nodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
+nodeConfigs, err := f.bgpncClient.List(ctx, meta_v1.ListOptions{})
 if !assert.NoError(c, err) {
 return
 }
