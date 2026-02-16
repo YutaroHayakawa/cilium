@@ -93,3 +93,45 @@ Destroy Lab
 .. code-block:: shell-session
 
    $ make kind-bgp-service-down
+
+Concurrency Guidelines
+======================
+
+The BGP Control Plane uses multiple concurrent goroutines for reconciliation and state management. When contributing to the BGP codebase, follow these concurrency guidelines:
+
+Operator-Side Concurrency
+-------------------------
+
+The ``operator/pkg/bgp`` package runs multiple concurrent jobs (6 by default) that trigger reconciliation. When accessing shared state:
+
+* **Always protect maps and shared state with mutexes**. Example: ``bgpRouterIDMap`` uses ``bgpRouterIDMapMu`` (RWMutex) to prevent data races during concurrent router ID allocation.
+* Use ``RLock/RUnlock`` for read operations and ``Lock/Unlock`` for write operations.
+* Test concurrent scenarios with the race detector: ``go test -race ./operator/pkg/bgp``
+
+Agent-Side Concurrency
+----------------------
+
+The ``pkg/bgp`` package maintains the following lock ordering invariant:
+
+.. code-block:: go
+
+   // Lock ordering invariant: pendingInstancesMutex -> BGPRouterManager.Lock
+   // If both locks need to be taken, acquire pendingInstancesMutex first.
+
+**Always follow this ordering** to prevent deadlocks. If unsure about lock ordering in new code, consult existing patterns in ``pkg/bgp/manager/manager.go``.
+
+State Tracking Goroutines
+--------------------------
+
+State tracking goroutines monitor BGP instance state changes. When launching goroutines:
+
+* Use contexts for lifecycle management
+* Add panic recovery to prevent crashes
+* Ensure proper cleanup on initialization failure
+
+Testing Concurrent Code
+-----------------------
+
+* Add concurrency tests for any code that accesses shared state
+* Run tests with race detector: ``go test -race``
+* Stress test with multiple nodes and instances (see ``TestRouterIDAllocationConcurrency`` for an example)
