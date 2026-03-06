@@ -26,11 +26,6 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-type RouterIDKey struct {
-	NodeName     string
-	InstanceName string
-}
-
 func (b *BGPResourceManager) reconcileBGPClusterConfigs(ctx context.Context) error {
 	var err error
 	configs := b.clusterConfigStore.List()
@@ -252,19 +247,17 @@ func (b *BGPResourceManager) deleteNodeConfigs(ctx context.Context, selectedNode
 			}
 			errs = errors.Join(errs, deleteErr)
 			continue
-		} else {
-			// free the router ID from the IP pool and remove it from the map
-			if b.bgpRouterIDIPPoolEnabled {
-				for _, instance := range nodeConfig.Spec.BGPInstances {
-					key := getRouterIDKey(nodeConfig.Name, instance.Name)
-					if routerID, exists := b.bgpRouterIDMap[key]; exists {
-						if freeErr := b.freeRouterID(key, routerID); freeErr != nil {
-							errs = errors.Join(errs, fmt.Errorf("failed to free router ID for node and instance %s/%s: %w", nodeConfig.Name, instance.Name, freeErr))
-						}
+		}
+		// free the router ID from the IP pool and remove it from the map
+		if b.bgpRouterIDIPPoolEnabled {
+			for _, instance := range nodeConfig.Spec.BGPInstances {
+				key := getRouterIDKey(nodeConfig.Name, instance.Name)
+				if routerID, exists := b.bgpRouterIDMap[key]; exists {
+					if freeErr := b.freeRouterID(key, routerID); freeErr != nil {
+						errs = errors.Join(errs, fmt.Errorf("failed to free router ID for node and instance %s/%s: %w", nodeConfig.Name, instance.Name, freeErr))
 					}
 				}
 			}
-
 		}
 		b.logger.DebugContext(ctx, "Deleted BGP node config",
 			types.BGPNodeConfigLogField, nodeConfig.Name,
